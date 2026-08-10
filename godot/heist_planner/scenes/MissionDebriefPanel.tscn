@@ -1,0 +1,68 @@
+[gd_scene load_steps=2 format=3 uid="uid://missiondebrief"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/MissionDebriefPanel.gd" id="1_script"]
+
+[node name="MissionDebriefPanel" type="PanelContainer" script=ExtResource("1_script")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="OutcomeLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "MISSION OUTCOME"
+theme_override_font_sizes/font_size = 14
+
+[node name="HeatChangeLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "NO HEAT ADDED"
+theme_override_font_sizes/font_size = 10
+
+[node name="HSep" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="NodesHeader" type="Label" parent="VBox"]
+layout_mode = 2
+text = "NODE PERFORMANCE"
+theme_override_font_sizes/font_size = 9
+
+[node name="DebriefNodeList" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+size_flags_vertical = 3
+
+[node name="HSep2" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="ManifestUpdateRow" type="Control" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 16)
+
+[node name="ManifestUpdateLabel" type="Label" parent="VBox/ManifestUpdateRow"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = ""
+theme_override_font_sizes/font_size = 10
+
+[node name="DebriefRecommendation" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 3
+
+[node name="BtnCloseDebrief" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CLOSE"

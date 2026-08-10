@@ -1,0 +1,7 @@
+[gd_scene load_steps=2 format=3 uid="uid://timelinebar"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/TimelineBar.gd" id="1_timeline"]
+
+[node name="TimelineBar" type="Control" script=ExtResource("1_timeline")]
+custom_minimum_size = Vector2(0, 32)
+size_flags_horizontal = 3

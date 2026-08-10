@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SuitPartResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/SuitPartResource.gd" id="1_spr"]
+
+[resource]
+script = ExtResource("1_spr")
+part_id = &"quiet_frame"
+display_name = "Quiet Frame"
+description = "Acoustic dampening and thermal baffling integrated into the structural members — not added on. The suppression material is load-bearing, which is why capacity is constrained: what normally holds attachment points holds dampening foam instead. The result is a chassis that is genuinely absent to passive sensors."
+slot = 0
+systems_load = 0.0
+systems_capacity = 0.67
+thrust_factor = 1.0
+actuator_factor = 1.0
+thermal_coefficient = 0.18
+armor_points = 0.0
+damage_bonus = 0.0
+mesh_surface_indices = PackedInt32Array()
+origin_faction = 0

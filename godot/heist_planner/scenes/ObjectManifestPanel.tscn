@@ -1,0 +1,61 @@
+[gd_scene load_steps=2 format=3 uid="uid://objectmanifest"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/ObjectManifestPanel.gd" id="1_script"]
+
+[node name="ObjectManifestPanel" type="PanelContainer" script=ExtResource("1_script")]
+custom_minimum_size = Vector2(240, 0)
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ManifestHeader" type="Label" parent="VBox"]
+layout_mode = 2
+text = "OBJECT MANIFEST"
+theme_override_font_sizes/font_size = 10
+
+[node name="AssemblyRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="AssemblyBar" type="ProgressBar" parent="VBox/AssemblyRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 10)
+show_percentage = false
+value = 0.0
+
+[node name="AssemblyLabel" type="Label" parent="VBox/AssemblyRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "0%"
+custom_minimum_size = Vector2(36, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="HSep" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="ComponentsHeader" type="Label" parent="VBox"]
+layout_mode = 2
+text = "COMPONENTS"
+theme_override_font_sizes/font_size = 9
+
+[node name="ComponentList" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+size_flags_vertical = 3
+
+[node name="HSep2" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="RecsHeader" type="Label" parent="VBox"]
+layout_mode = 2
+text = "RECOMMENDATIONS"
+theme_override_font_sizes/font_size = 9
+
+[node name="RecommendationList" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3

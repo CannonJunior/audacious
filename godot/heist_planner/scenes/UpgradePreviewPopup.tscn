@@ -1,0 +1,90 @@
+[gd_scene load_steps=2 format=3 uid="uid://upgradepreview"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/UpgradePreviewPopup.gd" id="1_script"]
+
+[node name="UpgradePreviewPopup" type="PanelContainer" script=ExtResource("1_script")]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -200.0
+offset_right = 180.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="UpgradeTitle" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "UPGRADE"
+theme_override_font_sizes/font_size = 13
+
+[node name="ChainLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 9
+visible = false
+
+[node name="TimeRemainingLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 9
+
+[node name="VillainWarning" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CONTESTED"
+theme_override_font_sizes/font_size = 10
+visible = false
+
+[node name="HSep" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="StatsHeader" type="Label" parent="VBox"]
+layout_mode = 2
+text = "STAT CHANGES"
+theme_override_font_sizes/font_size = 9
+
+[node name="StatDeltaList" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="CargoInfoLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 3
+visible = false
+
+[node name="HSep2" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="ButtonRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+alignment = 2
+
+[node name="BtnDismissUpgrade" type="Button" parent="VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "DISMISS"
+
+[node name="Spacer" type="Control" parent="VBox/ButtonRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnCommitUpgrade" type="Button" parent="VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "COMMIT"

@@ -1,0 +1,219 @@
+[gd_scene load_steps=3 format=3 uid="uid://heistplanner"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/HeistPlannerPanel.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/IntelligenceOverlay.tscn" id="2_intel"]
+
+[node name="HeistPlannerPanel" type="Control" script=ExtResource("1_script")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="HSplit" type="HSplitContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+split_offset = 320
+
+[node name="LeftScroll" type="ScrollContainer" parent="HSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="LeftVBox" type="VBoxContainer" parent="HSplit/LeftScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="NoTargetHint" type="Label" parent="HSplit/LeftScroll/LeftVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Select a target to begin planning."
+theme_override_font_sizes/font_size = 10
+
+[node name="TargetContent" type="VBoxContainer" parent="HSplit/LeftScroll/LeftVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+visible = false
+
+[node name="HeaderRow" type="HBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+
+[node name="TargetNameLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "TARGET"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="SidequestBadge" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SIDEQUEST"
+theme_override_font_sizes/font_size = 9
+visible = false
+
+[node name="SecurityLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SECURITY: —"
+theme_override_font_sizes/font_size = 10
+
+[node name="HeatLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "HEAT: —"
+theme_override_font_sizes/font_size = 10
+
+[node name="HSep" type="HSeparator" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+
+[node name="IntelHeader" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+text = "INTELLIGENCE"
+theme_override_font_sizes/font_size = 9
+
+[node name="IntelList" type="VBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HSep2" type="HSeparator" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+
+[node name="ApproachHeader" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+text = "APPROACHES"
+theme_override_font_sizes/font_size = 9
+
+[node name="ApproachesList" type="VBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="HSep3" type="HSeparator" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+
+[node name="WindowsHeader" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+text = "MISSION WINDOWS"
+theme_override_font_sizes/font_size = 9
+
+[node name="WindowsList" type="VBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="HSep4" type="HSeparator" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+
+[node name="RiskPanel" type="VBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="RiskHeader" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel"]
+layout_mode = 2
+text = "RISK ASSESSMENT"
+theme_override_font_sizes/font_size = 9
+
+[node name="IntelRow" type="HBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel"]
+layout_mode = 2
+
+[node name="IntelBarLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel/IntelRow"]
+layout_mode = 2
+text = "Intel"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="IntelQualityBar" type="ProgressBar" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel/IntelRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 10)
+show_percentage = false
+value = 0.0
+
+[node name="ApproachRow" type="HBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel"]
+layout_mode = 2
+
+[node name="ApprBarLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel/ApproachRow"]
+layout_mode = 2
+text = "Approach"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="ApproachConfBar" type="ProgressBar" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel/ApproachRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 10)
+show_percentage = false
+value = 0.0
+
+[node name="WindowRow" type="HBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel"]
+layout_mode = 2
+
+[node name="WinBarLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel/WindowRow"]
+layout_mode = 2
+text = "Window"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="WindowConfBar" type="ProgressBar" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel/WindowRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 10)
+show_percentage = false
+value = 0.0
+
+[node name="OverallRiskLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "OVERALL RISK: —"
+theme_override_font_sizes/font_size = 11
+
+[node name="RecommendationLabel" type="Label" parent="HSplit/LeftScroll/LeftVBox/TargetContent/RiskPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 3
+
+[node name="ActionRow" type="HBoxContainer" parent="HSplit/LeftScroll/LeftVBox/TargetContent"]
+layout_mode = 2
+
+[node name="BtnRecon" type="Button" parent="HSplit/LeftScroll/LeftVBox/TargetContent/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RECON"
+
+[node name="Spacer" type="Control" parent="HSplit/LeftScroll/LeftVBox/TargetContent/ActionRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnDesignApproach" type="Button" parent="HSplit/LeftScroll/LeftVBox/TargetContent/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "DESIGN APPROACH"
+disabled = true
+
+[node name="BtnExecuteAnyway" type="Button" parent="HSplit/LeftScroll/LeftVBox/TargetContent/ActionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "EXECUTE"
+visible = false
+
+[node name="RightVBox" type="VBoxContainer" parent="HSplit"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 6
+
+[node name="IntelligenceOverlay" type="Control" parent="HSplit/RightVBox" instance=ExtResource("2_intel")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3

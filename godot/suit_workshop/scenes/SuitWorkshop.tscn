@@ -1,0 +1,128 @@
+[gd_scene load_steps=4 format=3 uid="uid://suit_workshop_001"]
+
+[ext_resource type="Script"      path="res://suit_workshop/ui/suit_workshop.gd"   id="1_sw"]
+[ext_resource type="Script"      path="res://suit_workshop/ui/suit_viewer_3d.gd"  id="2_sv"]
+[ext_resource type="PackedScene" path="res://suit_workshop/scenes/StatBar.tscn"   id="3_sb"]
+
+[node name="SuitWorkshop" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_sw")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.04, 0.04, 0.06, 1)
+
+[node name="MainLayout" type="HSplitContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+split_offset = 620
+
+[node name="ViewerSection" type="VBoxContainer" parent="MainLayout"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="ViewerHeader" type="Label" parent="MainLayout/ViewerSection"]
+text = "SUIT CONFIGURATION"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.55, 0.55, 0.60, 1)
+
+[node name="ViewportContainer" type="SubViewportContainer" parent="MainLayout/ViewerSection"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+stretch = true
+
+[node name="SuitViewport" type="SubViewport" parent="MainLayout/ViewerSection/ViewportContainer"]
+transparent_bg = true
+size = Vector2i(600, 700)
+
+[node name="SuitViewer3D" type="Node3D" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport"]
+script = ExtResource("2_sv")
+unique_name_in_owner = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
+
+[node name="Camera3D" type="Camera3D" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
+transform = Transform3D(1, 0, 0, 0, 0.94, 0.34, 0, -0.34, 0.94, 0, 0.9, 2.8)
+
+[node name="MainLight" type="DirectionalLight3D" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
+transform = Transform3D(0.87, -0.35, 0.35, 0, 0.71, 0.71, -0.50, -0.61, 0.61, 3, 4, 2)
+light_energy = 1.8
+shadow_enabled = true
+
+[node name="FillLight" type="DirectionalLight3D" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
+transform = Transform3D(-0.87, -0.35, -0.35, 0, 0.71, -0.71, 0.50, -0.61, -0.61, -3, 3, -2)
+light_energy = 0.4
+light_color = Color(0.7, 0.8, 1.0, 1)
+
+[node name="StatsPanel" type="VBoxContainer" parent="MainLayout/ViewerSection"]
+theme_override_constants/separation = 6
+
+[node name="BarSpeed" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+unique_name_in_owner = true
+script = ExtResource("3_sb")
+label_text = "SPEED"
+metadata/_custom_type_hint = "StatBarUI"
+
+[node name="BarBoost" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+unique_name_in_owner = true
+script = ExtResource("3_sb")
+label_text = "BOOST"
+metadata/_custom_type_hint = "StatBarUI"
+
+[node name="BarArmor" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+unique_name_in_owner = true
+script = ExtResource("3_sb")
+label_text = "ARMOR"
+show_raw_value = true
+metadata/_custom_type_hint = "StatBarUI"
+
+[node name="BarLoad" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+unique_name_in_owner = true
+script = ExtResource("3_sb")
+label_text = "LOAD"
+show_raw_value = true
+metadata/_custom_type_hint = "StatBarUI"
+
+[node name="FlightLabel" type="Label" parent="MainLayout/ViewerSection/StatsPanel"]
+unique_name_in_owner = true
+text = "FLIGHT: ∞ UNLIMITED"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1)
+
+[node name="PanelSection" type="VBoxContainer" parent="MainLayout"]
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="PanelHeader" type="Label" parent="MainLayout/PanelSection"]
+text = "COMPONENTS"
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.55, 0.55, 0.60, 1)
+
+[node name="SlotsGrid" type="GridContainer" parent="MainLayout/PanelSection"]
+unique_name_in_owner = true
+size_flags_vertical = 3
+columns = 2
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+
+[node name="WarningsSeparator" type="HSeparator" parent="MainLayout/PanelSection"]
+
+[node name="WarningsScroll" type="ScrollContainer" parent="MainLayout/PanelSection"]
+custom_minimum_size = Vector2(0, 80)
+
+[node name="WarningsBox" type="VBoxContainer" parent="MainLayout/PanelSection/WarningsScroll"]
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_constants/separation = 4

@@ -1,0 +1,171 @@
+[gd_scene load_steps=9 format=3 uid="uid://opscenter"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/OperationsCenter.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/RecommendationBar.tscn" id="2_recbar"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/HeatTrackerPanel.tscn" id="3_heat"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/ObjectManifestPanel.tscn" id="4_manifest"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/HeistPlannerPanel.tscn" id="5_dossier"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/RoutePlannerPanel.tscn" id="6_route"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/PracticeModeController.tscn" id="7_practice"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/MissionDebriefPanel.tscn" id="8_debrief"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/UpgradePreviewPopup.tscn" id="9_upgrade"]
+
+[node name="OperationsCenter" type="Control" script=ExtResource("1_script")]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+
+[node name="BG" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.039, 0.039, 0.059, 0.96)
+mouse_filter = 2
+
+[node name="OuterVBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="TopBar" type="HBoxContainer" parent="OuterVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 28)
+theme_override_constants/separation = 12
+
+[node name="OperationsCenterLabel" type="Label" parent="OuterVBox/TopBar"]
+layout_mode = 2
+text = "OPERATIONS CENTER"
+theme_override_font_sizes/font_size = 11
+custom_minimum_size = Vector2(180, 0)
+
+[node name="ActiveTargetLabel" type="Label" parent="OuterVBox/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnManifest" type="Button" parent="OuterVBox/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "MANIFEST"
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnDossier" type="Button" parent="OuterVBox/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "DOSSIER"
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnRoute" type="Button" parent="OuterVBox/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ROUTE"
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnPractice" type="Button" parent="OuterVBox/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "PRACTICE"
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnClose" type="Button" parent="OuterVBox/TopBar"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "✕"
+theme_override_font_sizes/font_size = 12
+
+[node name="RecommendationBar" type="HBoxContainer" parent="OuterVBox" instance=ExtResource("2_recbar")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="MainHBox" type="HSplitContainer" parent="OuterVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = 200
+
+[node name="LeftSidebar" type="VBoxContainer" parent="OuterVBox/MainHBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeatTrackerPanel" type="PanelContainer" parent="OuterVBox/MainHBox/LeftSidebar" instance=ExtResource("3_heat")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ObjectManifestPanel" type="PanelContainer" parent="OuterVBox/MainHBox/LeftSidebar" instance=ExtResource("4_manifest")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="MainArea" type="Control" parent="OuterVBox/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="HeistPlannerPanel" type="Control" parent="OuterVBox/MainHBox/MainArea" instance=ExtResource("5_dossier")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = true
+
+[node name="RoutePlannerPanel" type="Control" parent="OuterVBox/MainHBox/MainArea" instance=ExtResource("6_route")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+
+[node name="PracticeModeController" type="Control" parent="OuterVBox/MainHBox/MainArea" instance=ExtResource("7_practice")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+
+[node name="MissionDebriefPanel" type="PanelContainer" parent="OuterVBox/MainHBox/MainArea" instance=ExtResource("8_debrief")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false
+
+[node name="UpgradePreviewPopup" type="PanelContainer" parent="." instance=ExtResource("9_upgrade")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -200.0
+offset_right = 180.0
+offset_bottom = 200.0
+grow_horizontal = 2
+grow_vertical = 2
+visible = false

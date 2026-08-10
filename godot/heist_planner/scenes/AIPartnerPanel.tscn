@@ -1,0 +1,48 @@
+[gd_scene load_steps=2 format=3 uid="uid://aipartnerpanel"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/AIPartnerPanel.gd" id="1_script"]
+
+[node name="AIPartnerPanel" type="PanelContainer" script=ExtResource("1_script")]
+custom_minimum_size = Vector2(220, 0)
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="AIPartnerHeader" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "AI PARTNER"
+theme_override_font_sizes/font_size = 10
+
+[node name="AIContent" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="IdleLabel" type="Label" parent="VBox/AIContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Run simulation or select a target to receive analysis."
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 3
+
+[node name="OverallSuccessLabel" type="Label" parent="VBox/AIContent"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 10
+visible = false
+
+[node name="NodeResultsList" type="VBoxContainer" parent="VBox/AIContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+visible = false
+
+[node name="SuggestionsList" type="VBoxContainer" parent="VBox/AIContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+visible = false

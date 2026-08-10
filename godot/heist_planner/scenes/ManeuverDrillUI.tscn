@@ -1,0 +1,148 @@
+[gd_scene load_steps=2 format=3 uid="uid://maneuverdrill"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/ManeuverDrillUI.gd" id="1_script"]
+
+[node name="ManeuverDrillUI" type="Control" script=ExtResource("1_script")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="DrillNodeName" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "NODE"
+theme_override_font_sizes/font_size = 14
+
+[node name="DrillNodeType" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "TRANSIT"
+theme_override_font_sizes/font_size = 9
+
+[node name="DrillTimingInfo" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Window: —  Duration: —  Margin: —"
+theme_override_font_sizes/font_size = 9
+
+[node name="HSep" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="PositionRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="PosLabel" type="Label" parent="VBox/PositionRow"]
+layout_mode = 2
+text = "Position"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 10
+
+[node name="PositionSlider" type="HSlider" parent="VBox/PositionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.8
+
+[node name="PositionValue" type="Label" parent="VBox/PositionRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "80%"
+custom_minimum_size = Vector2(36, 0)
+theme_override_font_sizes/font_size = 10
+
+[node name="TimingRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="TimingLabel" type="Label" parent="VBox/TimingRow"]
+layout_mode = 2
+text = "Timing"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 10
+
+[node name="TimingSlider" type="HSlider" parent="VBox/TimingRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.8
+
+[node name="TimingValue" type="Label" parent="VBox/TimingRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "80%"
+custom_minimum_size = Vector2(36, 0)
+theme_override_font_sizes/font_size = 10
+
+[node name="NoiseRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="NoiseLabel" type="Label" parent="VBox/NoiseRow"]
+layout_mode = 2
+text = "Noise"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 10
+
+[node name="NoiseSlider" type="HSlider" parent="VBox/NoiseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 1.0
+step = 0.01
+value = 0.8
+
+[node name="NoiseValue" type="Label" parent="VBox/NoiseRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "80%"
+custom_minimum_size = Vector2(36, 0)
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnSubmitDrill" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "EXECUTE MANEUVER"
+
+[node name="DrillResultArea" type="Control" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 4)
+visible = false
+
+[node name="FeedbackBox" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+visible = false
+
+[node name="FeedbackLabel" type="Label" parent="VBox/FeedbackBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CLEAN"
+theme_override_font_sizes/font_size = 14
+
+[node name="AiAnalysisLabel" type="Label" parent="VBox/FeedbackBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 3
+
+[node name="BtnRetryDrill" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RETRY"
+visible = false

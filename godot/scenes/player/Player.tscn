@@ -1,0 +1,70 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scenes/player/InputManager.gd" id="1_inputmgr"]
+[ext_resource type="Script" path="res://scenes/player/SuitBody.gd" id="2_suitbody"]
+[ext_resource type="Script" path="res://systems/movement/MovementController.gd" id="3_movctrl"]
+[ext_resource type="Script" path="res://systems/movement/states/GroundedState.gd" id="4_grounded"]
+[ext_resource type="Script" path="res://systems/movement/states/AirborneState.gd" id="5_airborne"]
+[ext_resource type="Script" path="res://systems/movement/states/FlightState.gd" id="6_flight"]
+[ext_resource type="Script" path="res://systems/movement/FlightController.gd" id="7_flightctrl"]
+[ext_resource type="Script" path="res://scenes/player/CameraRig.gd" id="8_camrig"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_1"]
+radius = 0.4
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="Material_1"]
+albedo_color = Color(0.15, 0.6, 0.9, 1)
+roughness = 0.3
+metallic = 0.6
+
+[node name="Player" type="Node3D"]
+
+[node name="InputManager" type="Node" parent="."]
+script = ExtResource("1_inputmgr")
+
+[node name="SuitBody" type="CharacterBody3D" parent="."]
+script = ExtResource("2_suitbody")
+floor_snap_length = 0.3
+floor_max_angle = 0.8
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SuitBody"]
+position = Vector3(0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_1")
+
+[node name="Visuals" type="MeshInstance3D" parent="SuitBody"]
+position = Vector3(0, 0.9, 0)
+mesh = SubResource("CapsuleMesh_1")
+material_override = SubResource("Material_1")
+
+[node name="MovementController" type="Node" parent="SuitBody"]
+script = ExtResource("3_movctrl")
+
+[node name="GroundedState" type="Node" parent="SuitBody/MovementController"]
+script = ExtResource("4_grounded")
+
+[node name="AirborneState" type="Node" parent="SuitBody/MovementController"]
+script = ExtResource("5_airborne")
+
+[node name="FlightState" type="Node" parent="SuitBody/MovementController"]
+script = ExtResource("6_flight")
+
+[node name="FlightController" type="Node" parent="SuitBody"]
+script = ExtResource("7_flightctrl")
+
+[node name="CameraRig" type="Node3D" parent="SuitBody"]
+top_level = true
+script = ExtResource("8_camrig")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="SuitBody/CameraRig"]
+position = Vector3(0, 1.5, 0)
+spring_length = 5.0
+margin = 0.2
+
+[node name="Camera3D" type="Camera3D" parent="SuitBody/CameraRig/SpringArm3D"]
+fov = 75.0
+near = 0.1

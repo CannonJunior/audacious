@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="SuitPartResource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/SuitPartResource.gd" id="1_spr"]
+
+[resource]
+script = ExtResource("1_spr")
+part_id = &"load_frame"
+display_name = "Load Frame"
+description = "More frame means more surface area for mounting systems, armor, and payload attachment. Built to carry the objective alongside the kit required to reach it. The highest capacity of any chassis — not because it is fast or quiet, but because it is structured to hold more and keep functioning under that weight."
+slot = 0
+systems_load = 0.0
+systems_capacity = 1.22
+thrust_factor = 1.0
+actuator_factor = 1.0
+thermal_coefficient = 0.95
+armor_points = 0.0
+damage_bonus = 0.0
+mesh_surface_indices = PackedInt32Array()
+origin_faction = 0

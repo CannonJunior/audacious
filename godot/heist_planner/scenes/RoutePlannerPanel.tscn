@@ -1,0 +1,118 @@
+[gd_scene load_steps=4 format=3 uid="uid://routeplanner"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/RoutePlannerPanel.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/TimelineBar.tscn" id="2_timeline"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/AIPartnerPanel.tscn" id="3_ai"]
+
+[node name="RoutePlannerPanel" type="Control" script=ExtResource("1_script")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="ApproachLabel" type="Label" parent="VBox/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "APPROACH: NONE SELECTED"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+
+[node name="CargoWarning" type="Label" parent="VBox/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CARGO CONFLICT"
+theme_override_font_sizes/font_size = 9
+visible = false
+
+[node name="RareWarning" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RARE TRANSPORT: —"
+theme_override_font_sizes/font_size = 9
+autowrap_mode = 3
+visible = false
+
+[node name="MainHBox" type="HSplitContainer" parent="VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+split_offset = -260
+
+[node name="NodeScrollContainer" type="ScrollContainer" parent="VBox/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="NodeVBox" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="NodesHeader" type="Label" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+layout_mode = 2
+text = "ROUTE NODES"
+theme_override_font_sizes/font_size = 9
+
+[node name="NodeList" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="EvasionSection" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+visible = false
+
+[node name="EvasionHeader" type="Label" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox/EvasionSection"]
+layout_mode = 2
+text = "EVASION ADDENDUM"
+theme_override_font_sizes/font_size = 9
+
+[node name="EvasionNodeList" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox/EvasionSection"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+
+[node name="BtnAddNode" type="Button" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "+ ADD NODE"
+
+[node name="AIPartnerPanel" type="PanelContainer" parent="VBox/MainHBox" instance=ExtResource("3_ai")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="BottomRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TimelineBar" type="Control" parent="VBox/BottomRow" instance=ExtResource("2_timeline")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BtnRunSim" type="Button" parent="VBox/BottomRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "RUN SIM"
+
+[node name="BtnPractice" type="Button" parent="VBox/BottomRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "PRACTICE"
+
+[node name="BtnSaveRoute" type="Button" parent="VBox/BottomRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "SAVE ROUTE"

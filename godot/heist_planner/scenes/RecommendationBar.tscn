@@ -1,0 +1,50 @@
+[gd_scene load_steps=2 format=3 uid="uid://recbar"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/RecommendationBar.gd" id="1_script"]
+
+[node name="RecommendationBar" type="HBoxContainer" script=ExtResource("1_script")]
+custom_minimum_size = Vector2(0, 24)
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="RecCategoryLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ADVISOR"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="RecActionLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "—"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+
+[node name="VillainBadge" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "VILLAIN RACING"
+theme_override_font_sizes/font_size = 9
+visible = false
+
+[node name="RecTimeLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+custom_minimum_size = Vector2(44, 0)
+theme_override_font_sizes/font_size = 9
+visible = false
+
+[node name="RecCountLabel" type="Label" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+custom_minimum_size = Vector2(56, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="BtnViewAllRecs" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 2
+text = "ALL"
+theme_override_font_sizes/font_size = 9

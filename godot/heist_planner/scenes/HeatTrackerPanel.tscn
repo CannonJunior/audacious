@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://heattrackerpanel"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/HeatTrackerPanel.gd" id="1_script"]
+
+[node name="HeatTrackerPanel" type="PanelContainer" script=ExtResource("1_script")]
+custom_minimum_size = Vector2(200, 0)
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="HeaderLabel" type="Label" parent="VBox"]
+layout_mode = 2
+text = "HEAT STATUS"
+theme_override_font_sizes/font_size = 10
+
+[node name="HSep" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="HeatList" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+size_flags_vertical = 3
+
+[node name="EmptyLabel" type="Label" parent="VBox/HeatList"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "No active heat."
+theme_override_font_sizes/font_size = 9
+
+[node name="HSep2" type="HSeparator" parent="VBox"]
+layout_mode = 2
+
+[node name="CityAlertLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "CITY-WIDE: NOMINAL"
+theme_override_font_sizes/font_size = 9
