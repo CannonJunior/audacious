@@ -2,22 +2,17 @@
 ## Attach to the root Node3D of the suit's 3D sub-scene.
 ##
 ## Surface mapping (mesh_surface_indices on SuitPartResource) must be filled in
-## after importing the FBX in the Godot editor:
-##   1. Open the imported FBX scene.
-##   2. Select the MeshInstance3D.
-##   3. In the Inspector → Mesh → Surfaces, note which surface index corresponds
-##      to each body region (body, legs, chest, arms, head, etc.).
-##   4. Add mesh_surface_indices: Array[int] to SuitPartResource and set per .tres.
+## by inspecting mesh surface names in the Godot editor after first run:
+##   1. Add a breakpoint after _find_mesh_instances to print node/surface names.
+##   2. Note which surface index maps to each body region.
+##   3. Set mesh_surface_indices on each SuitPartResource .tres accordingly.
 class_name SuitViewer3D
 extends Node3D
 
-const SUIT_SCENE_PATH := "res://assets/suit/Iron Man 2.fbx"
+const SUIT_SCENE_PATH := "res://assets/suit/iron_man.glb"
 const SHADER_PATH     := "res://suit_workshop/shaders/suit_surface.gdshader"
 
 const TEXTURE_SETS: Dictionary = {
-	# surface_name_hint -> { albedo, normal, orm, emissive, specular }
-	# These are matched against mesh surface names after import.
-	# Fallback: applied by surface index order if names don't match.
 	"Body_01": {
 		"albedo":   "res://assets/suit/textures/T_1034501_Body_01_D.png",
 		"normal":   "res://assets/suit/textures/T_1034501_Body_01_N.png",
@@ -36,7 +31,7 @@ const TEXTURE_SETS: Dictionary = {
 		"albedo":   "res://assets/suit/textures/T_1034501_Equip_01_D.png",
 		"normal":   "res://assets/suit/textures/T_1034501_Equip_01_N.png",
 		"orm":      "res://assets/suit/textures/T_1034501_Equip_01_ORM.png",
-		"emissive": "res://assets/suit/textures/T_1034501_Equip_01_S.png",  # use S as fallback
+		"emissive": "res://assets/suit/textures/T_1034501_Equip_01_S.png",
 		"specular": "res://assets/suit/textures/T_1034501_Equip_01_S.png",
 	},
 	"Equip_02": {
@@ -69,6 +64,23 @@ const TEXTURE_SETS: Dictionary = {
 	},
 }
 
+# Maps GLB primitive material names → TEXTURE_SETS key.
+# Surface order confirmed by parsing iron_man.glb JSON chunk:
+#   0=Head, 1=Body_01, 2=Body_02, 3=Equip_05, 4=Equip_04,
+#   5=Equip_03, 6=Equip_02, 7=Equip_01, 8=Hide, 9=FloatingGun_02
+const SURFACE_NAME_MAP: Dictionary = {
+	"MI_1034501_Head":           "Head",
+	"MI_1034501_Body_01":        "Body_01",
+	"MI_1034501_Body_02":        "Body_02",
+	"MI_1034001_Equip_05":       "Equip_04",  # no Equip_05 textures; reuse Equip_04
+	"MI_1034501_Equip_04":       "Equip_04",
+	"MI_1034501_Equip_03":       "Equip_03",
+	"MI_1034501_Equip_02":       "Equip_02",
+	"MI_1034501_Equip_01":       "Equip_01",
+	"MI_1034501_FloatingGun_02": "Equip_01",  # weapon mount; reuse Equip_01
+}
+# "MI_Hide" is intentionally absent — hidden geo gets no material override.
+
 const EMPTY_SLOT_COLOR:    Color = Color(0.25, 0.25, 0.28, 1.0)
 const BODY_EMISSIVE_COLOR: Color = Color(0.08, 0.35, 0.55, 1.0)  # subtle blue — not a slot
 
@@ -84,7 +96,7 @@ var _shader:         Shader     = null
 var _is_loaded:      bool       = false
 var _highlighted_surfaces: Dictionary = {}  # surface_material_key -> bool
 var _auto_rotate:    bool       = true
-var _drag_start_x:   float      = 0.0
+var _drag_start_x:   float      = 0.0   # kept for InputEventMouseButton; orbit uses relative
 var _is_dragging:    bool       = false
 var _model_y_rotation:float     = 0.0
 
@@ -145,31 +157,29 @@ func handle_mouse_input(event: InputEvent) -> void:
 			else:
 				_auto_rotate  = true  # resume after release
 	elif event is InputEventMouseMotion and _is_dragging:
-		var delta_x := event.position.x - _drag_start_x
-		_model_y_rotation += delta_x * 0.01
+		var motion := event as InputEventMouseMotion
+		_model_y_rotation += motion.relative.x * 0.01
 		if _suit_root:
 			_suit_root.rotation.y = _model_y_rotation
-		_drag_start_x = event.position.x
 
 
 # ── Internal ──────────────────────────────────────────────────────────────────
 
 func _load_suit() -> void:
-	var packed: PackedScene = load(SUIT_SCENE_PATH)
-	if packed == null:
+	# GLTFDocument loads GLB at runtime without requiring an editor import pass.
+	var doc   := GLTFDocument.new()
+	var state := GLTFState.new()
+	var path  := ProjectSettings.globalize_path(SUIT_SCENE_PATH)
+	var err   := doc.append_from_file(path, state)
+	if err != OK:
 		push_error("[SuitViewer3D] Could not load suit model from: " + SUIT_SCENE_PATH)
 		return
 
-	_suit_root = packed.instantiate()
+	_suit_root = doc.generate_scene(state)
 	add_child(_suit_root)
-
-	# Centre the model
 	_suit_root.position = Vector3.ZERO
 
-	# Collect all MeshInstance3D nodes
 	_find_mesh_instances(_suit_root, _mesh_instances)
-
-	# Create and apply shader materials
 	_build_materials()
 	_is_loaded = true
 
@@ -187,16 +197,24 @@ func _build_materials() -> void:
 		var mesh_mats: Array[ShaderMaterial] = []
 		var surface_count: int = mi.get_surface_override_material_count()
 
-		# Determine which texture set to use based on mesh / surface name.
-		# Falls back to sequential assignment if names don't match.
-		var tex_key: String = _resolve_texture_key(mi)
-
 		for i in surface_count:
+			var surface_name: String = mi.mesh.surface_get_name(i) if mi.mesh else ""
+			if surface_name.is_empty():
+				# GLTFDocument may store name on the original material instead
+				var orig := mi.mesh.surface_get_material(i)
+				if orig:
+					surface_name = orig.resource_name
+
+			# Hidden geometry — leave the surface override unset
+			if "Hide" in surface_name:
+				mesh_mats.append(null)
+				continue
+
+			var tex_key: String = _resolve_tex_key_for_surface(surface_name)
 			var mat := ShaderMaterial.new()
 			mat.shader = _shader
 			_apply_textures(mat, tex_key)
 
-			# Structural body surfaces use a fixed subtle colour
 			if tex_key in ["Body_01", "Body_02"]:
 				mat.set_shader_parameter("emissive_tint",     BODY_EMISSIVE_COLOR)
 				mat.set_shader_parameter("emissive_strength", 0.6)
@@ -210,14 +228,13 @@ func _build_materials() -> void:
 		_materials.append(mesh_mats)
 
 
-func _resolve_texture_key(mi: MeshInstance3D) -> String:
-	# Try to match the node name or mesh name to a known texture set.
-	for key in TEXTURE_SETS.keys():
-		if key.to_lower() in mi.name.to_lower():
+func _resolve_tex_key_for_surface(surface_name: String) -> String:
+	if SURFACE_NAME_MAP.has(surface_name):
+		return SURFACE_NAME_MAP[surface_name]
+	# Fallback: substring match against TEXTURE_SETS keys
+	for key: String in TEXTURE_SETS.keys():
+		if key.to_lower() in surface_name.to_lower():
 			return key
-		if mi.mesh and key.to_lower() in mi.mesh.resource_name.to_lower():
-			return key
-	# Default: first texture set
 	return TEXTURE_SETS.keys()[0]
 
 
@@ -232,21 +249,23 @@ func _apply_textures(mat: ShaderMaterial, tex_key: String) -> void:
 	_load_tex(mat, "specular_tex", set.get("specular", ""))
 
 
-func _load_tex(mat: ShaderMaterial, param: String, path: String) -> void:
-	if path.is_empty():
+func _load_tex(mat: ShaderMaterial, param: String, res_path: String) -> void:
+	if res_path.is_empty():
 		return
-	var tex: Texture2D = load(path)
-	if tex:
-		mat.set_shader_parameter(param, tex)
-	else:
-		push_warning("[SuitViewer3D] Texture not found: " + path)
+	# ResourceLoader.load() requires editor-generated .import files.
+	# Read the PNG directly via Image so the editor never needs to run.
+	var abs_path := ProjectSettings.globalize_path(res_path)
+	var img := Image.load_from_file(abs_path)
+	if img == null:
+		push_warning("[SuitViewer3D] Texture not found: " + res_path)
+		return
+	mat.set_shader_parameter(param, ImageTexture.create_from_image(img))
 
 
 func _get_mats_for_surfaces(surface_indices: Array) -> Array[ShaderMaterial]:
 	var result: Array[ShaderMaterial] = []
-	for mi_idx in _mesh_instances.size():
-		var mi: MeshInstance3D = _mesh_instances[mi_idx]
-		for surf_idx in surface_indices:
+	for mi: MeshInstance3D in _mesh_instances:
+		for surf_idx: int in surface_indices:
 			if surf_idx < mi.get_surface_override_material_count():
 				var mat = mi.get_surface_override_material(surf_idx)
 				if mat is ShaderMaterial:

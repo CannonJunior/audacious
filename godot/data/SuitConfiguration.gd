@@ -19,6 +19,12 @@ const SuitPartResource = preload("res://data/SuitPartResource.gd")
 @export var color_secondary: Color = Color(0.12, 0.12, 0.14)
 @export var color_accent: Color    = Color(0.00, 0.90, 0.80)
 
+func set_colors(primary: Color, secondary: Color, accent: Color) -> void:
+	color_primary   = primary
+	color_secondary = secondary
+	color_accent    = accent
+	EventBus.configuration_changed.emit(self)
+
 # ── Internal ──────────────────────────────────────────────────────────────────
 
 var _cached_stats: SuitStats = null

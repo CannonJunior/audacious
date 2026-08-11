@@ -1,8 +1,6 @@
 class_name SuitWorkshop
 extends Control
 
-signal slot_change_requested(slot: SuitPartResource.Slot)
-
 const SLOT_LABELS: Dictionary = {
 	SuitPartResource.Slot.CHASSIS:         "CHASSIS",
 	SuitPartResource.Slot.POWER_CORE:      "POWER CORE",
@@ -19,31 +17,46 @@ const SLOT_LABELS: Dictionary = {
 	SuitPartResource.Slot.WEAPON_SECONDARY:"WEAPON – SECONDARY",
 }
 
-@onready var _viewer:        SuitViewer3D         = %SuitViewer3D
-@onready var _slots_grid:    GridContainer        = %SlotsGrid
-@onready var _bar_speed:     StatBarUI            = %BarSpeed
-@onready var _bar_boost:     StatBarUI            = %BarBoost
-@onready var _bar_armor:     StatBarUI            = %BarArmor
-@onready var _bar_load:      StatBarUI            = %BarLoad
-@onready var _flight_label:  Label                = %FlightLabel
-@onready var _warnings_box:  VBoxContainer        = %WarningsBox
-@onready var _viewport_ctr:  SubViewportContainer = %ViewportContainer
+@onready var _viewer:           SuitViewer3D         = %SuitViewer3D
+@onready var _slots_grid:       GridContainer        = %SlotsGrid
+@onready var _bar_speed:        StatBarUI            = %BarSpeed
+@onready var _bar_boost:        StatBarUI            = %BarBoost
+@onready var _bar_armor:        StatBarUI            = %BarArmor
+@onready var _bar_load:         StatBarUI            = %BarLoad
+@onready var _flight_label:     Label                = %FlightLabel
+@onready var _warnings_box:     VBoxContainer        = %WarningsBox
+@onready var _viewport_ctr:     SubViewportContainer = %ViewportContainer
+@onready var _primary_picker:   ColorPickerButton    = %PrimaryPicker
+@onready var _secondary_picker: ColorPickerButton    = %SecondaryPicker
+@onready var _accent_picker:    ColorPickerButton    = %AccentPicker
 
 var _config:      SuitConfiguration = null
 var _slot_uis:    Dictionary        = {}   # SuitPartResource.Slot → ComponentSlotUI
 var _active_slot: int               = -1
+var _part_picker: PartPicker        = null
 
 
 func _ready() -> void:
 	_build_slot_grid()
 	_viewport_ctr.gui_input.connect(_on_viewport_input)
 	EventBus.configuration_changed.connect(_on_configuration_changed)
+
+	_primary_picker.color_changed.connect(func(c): _on_color_changed())
+	_secondary_picker.color_changed.connect(func(c): _on_color_changed())
+	_accent_picker.color_changed.connect(func(c): _on_color_changed())
+
+	var picker_scene: PackedScene = preload("res://suit_workshop/scenes/PartPicker.tscn")
+	_part_picker = picker_scene.instantiate() as PartPicker
+	add_child(_part_picker)
+	_part_picker.part_picked.connect(_on_part_picked)
+
 	visible = false
 
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("open_garage"):
 		visible = not visible
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible else Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
 
 
@@ -76,6 +89,7 @@ func _refresh_all() -> void:
 	_refresh_slots()
 	_refresh_stats()
 	_refresh_viewer()
+	_refresh_color_pickers()
 
 
 func _refresh_slots() -> void:
@@ -126,6 +140,15 @@ func _refresh_viewer() -> void:
 			_viewer.set_slot_highlighted(indices, true)
 
 
+func _refresh_color_pickers() -> void:
+	if _config == null:
+		return
+	# Setting .color directly does NOT emit color_changed, so no infinite loop.
+	_primary_picker.color   = _config.color_primary
+	_secondary_picker.color = _config.color_secondary
+	_accent_picker.color    = _config.color_accent
+
+
 func _refresh_warnings(s: SuitStats) -> void:
 	for child in _warnings_box.get_children():
 		child.queue_free()
@@ -154,6 +177,16 @@ func _on_configuration_changed(cfg: SuitConfiguration) -> void:
 	_refresh_all()
 
 
+func _on_color_changed() -> void:
+	if _config == null:
+		return
+	_config.set_colors(
+		_primary_picker.color,
+		_secondary_picker.color,
+		_accent_picker.color,
+	)
+
+
 func _on_slot_selected(slot: SuitPartResource.Slot) -> void:
 	_active_slot = slot as int
 	_refresh_slots()
@@ -161,7 +194,7 @@ func _on_slot_selected(slot: SuitPartResource.Slot) -> void:
 
 
 func _on_slot_change_requested(slot: SuitPartResource.Slot) -> void:
-	slot_change_requested.emit(slot)
+	_part_picker.open_for_slot(slot as int, SLOT_LABELS.get(slot, "COMPONENT"))
 
 
 func _on_slot_clear_requested(slot: SuitPartResource.Slot) -> void:
@@ -170,6 +203,12 @@ func _on_slot_clear_requested(slot: SuitPartResource.Slot) -> void:
 		if _active_slot == slot as int:
 			_active_slot = -1
 		_refresh_all()
+
+
+func _on_part_picked(slot: int, part: SuitPartResource) -> void:
+	if _config:
+		_active_slot = -1
+		_config.equip(slot as SuitPartResource.Slot, part)  # emits configuration_changed → _refresh_all
 
 
 func _on_viewport_input(event: InputEvent) -> void:

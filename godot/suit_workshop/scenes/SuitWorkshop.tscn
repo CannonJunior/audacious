@@ -44,6 +44,7 @@ size_flags_vertical = 3
 stretch = true
 
 [node name="SuitViewport" type="SubViewport" parent="MainLayout/ViewerSection/ViewportContainer"]
+own_world_3d = true
 transparent_bg = true
 size = Vector2i(600, 700)
 
@@ -69,31 +70,23 @@ light_color = Color(0.7, 0.8, 1.0, 1)
 [node name="StatsPanel" type="VBoxContainer" parent="MainLayout/ViewerSection"]
 theme_override_constants/separation = 6
 
-[node name="BarSpeed" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+[node name="BarSpeed" parent="MainLayout/ViewerSection/StatsPanel" instance=ExtResource("3_sb")]
 unique_name_in_owner = true
-script = ExtResource("3_sb")
 label_text = "SPEED"
-metadata/_custom_type_hint = "StatBarUI"
 
-[node name="BarBoost" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+[node name="BarBoost" parent="MainLayout/ViewerSection/StatsPanel" instance=ExtResource("3_sb")]
 unique_name_in_owner = true
-script = ExtResource("3_sb")
 label_text = "BOOST"
-metadata/_custom_type_hint = "StatBarUI"
 
-[node name="BarArmor" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+[node name="BarArmor" parent="MainLayout/ViewerSection/StatsPanel" instance=ExtResource("3_sb")]
 unique_name_in_owner = true
-script = ExtResource("3_sb")
 label_text = "ARMOR"
 show_raw_value = true
-metadata/_custom_type_hint = "StatBarUI"
 
-[node name="BarLoad" type="HBoxContainer" parent="MainLayout/ViewerSection/StatsPanel"]
+[node name="BarLoad" parent="MainLayout/ViewerSection/StatsPanel" instance=ExtResource("3_sb")]
 unique_name_in_owner = true
-script = ExtResource("3_sb")
 label_text = "LOAD"
 show_raw_value = true
-metadata/_custom_type_hint = "StatBarUI"
 
 [node name="FlightLabel" type="Label" parent="MainLayout/ViewerSection/StatsPanel"]
 unique_name_in_owner = true
@@ -109,6 +102,50 @@ theme_override_constants/separation = 8
 text = "COMPONENTS"
 theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.55, 0.55, 0.60, 1)
+
+[node name="LiverySection" type="VBoxContainer" parent="MainLayout/PanelSection"]
+theme_override_constants/separation = 4
+
+[node name="LiveryHeader" type="Label" parent="MainLayout/PanelSection/LiverySection"]
+text = "LIVERY"
+theme_override_font_sizes/font_size = 9
+theme_override_colors/font_color = Color(0.55, 0.55, 0.60, 1)
+
+[node name="ColorRow" type="HBoxContainer" parent="MainLayout/PanelSection/LiverySection"]
+theme_override_constants/separation = 10
+
+[node name="PrimaryLabel" type="Label" parent="MainLayout/PanelSection/LiverySection/ColorRow"]
+text = "Primary"
+theme_override_font_sizes/font_size = 10
+size_flags_horizontal = 3
+
+[node name="PrimaryPicker" type="ColorPickerButton" parent="MainLayout/PanelSection/LiverySection/ColorRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 28)
+color = Color(0.15, 0.60, 0.90, 1)
+edit_alpha = false
+
+[node name="SecondaryLabel" type="Label" parent="MainLayout/PanelSection/LiverySection/ColorRow"]
+text = "Secondary"
+theme_override_font_sizes/font_size = 10
+size_flags_horizontal = 3
+
+[node name="SecondaryPicker" type="ColorPickerButton" parent="MainLayout/PanelSection/LiverySection/ColorRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 28)
+color = Color(0.12, 0.12, 0.14, 1)
+edit_alpha = false
+
+[node name="AccentLabel" type="Label" parent="MainLayout/PanelSection/LiverySection/ColorRow"]
+text = "Accent"
+theme_override_font_sizes/font_size = 10
+size_flags_horizontal = 3
+
+[node name="AccentPicker" type="ColorPickerButton" parent="MainLayout/PanelSection/LiverySection/ColorRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(60, 28)
+color = Color(0.00, 0.90, 0.80, 1)
+edit_alpha = false
 
 [node name="SlotsGrid" type="GridContainer" parent="MainLayout/PanelSection"]
 unique_name_in_owner = true

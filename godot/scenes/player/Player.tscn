@@ -1,13 +1,15 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=14 format=3]
 
-[ext_resource type="Script" path="res://scenes/player/InputManager.gd" id="1_inputmgr"]
-[ext_resource type="Script" path="res://scenes/player/SuitBody.gd" id="2_suitbody"]
-[ext_resource type="Script" path="res://systems/movement/MovementController.gd" id="3_movctrl"]
-[ext_resource type="Script" path="res://systems/movement/states/GroundedState.gd" id="4_grounded"]
-[ext_resource type="Script" path="res://systems/movement/states/AirborneState.gd" id="5_airborne"]
-[ext_resource type="Script" path="res://systems/movement/states/FlightState.gd" id="6_flight"]
-[ext_resource type="Script" path="res://systems/movement/FlightController.gd" id="7_flightctrl"]
-[ext_resource type="Script" path="res://scenes/player/CameraRig.gd" id="8_camrig"]
+[ext_resource type="Script"      path="res://scenes/player/InputManager.gd"                  id="1_inputmgr"]
+[ext_resource type="Script"      path="res://scenes/player/SuitBody.gd"                       id="2_suitbody"]
+[ext_resource type="Script"      path="res://systems/movement/MovementController.gd"           id="3_movctrl"]
+[ext_resource type="Script"      path="res://systems/movement/states/GroundedState.gd"         id="4_grounded"]
+[ext_resource type="Script"      path="res://systems/movement/states/AirborneState.gd"         id="5_airborne"]
+[ext_resource type="Script"      path="res://systems/movement/states/FlightState.gd"           id="6_flight"]
+[ext_resource type="Script"      path="res://systems/movement/FlightController.gd"             id="7_flightctrl"]
+[ext_resource type="Script"      path="res://scenes/player/CameraRig.gd"                      id="8_camrig"]
+[ext_resource type="PackedScene" path="res://suit_workshop/scenes/SuitWorkshop.tscn"           id="9_workshop"]
+[ext_resource type="Script"      path="res://scenes/player/SuitModelVisuals.gd"               id="10_smv"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.4
@@ -41,6 +43,9 @@ position = Vector3(0, 0.9, 0)
 mesh = SubResource("CapsuleMesh_1")
 material_override = SubResource("Material_1")
 
+[node name="SuitModel" type="Node3D" parent="SuitBody"]
+script = ExtResource("10_smv")
+
 [node name="MovementController" type="Node" parent="SuitBody"]
 script = ExtResource("3_movctrl")
 
@@ -68,3 +73,7 @@ margin = 0.2
 [node name="Camera3D" type="Camera3D" parent="SuitBody/CameraRig/SpringArm3D"]
 fov = 75.0
 near = 0.1
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="SuitWorkshop" parent="HUD" instance=ExtResource("9_workshop")]

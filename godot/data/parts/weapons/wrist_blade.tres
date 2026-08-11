@@ -15,5 +15,5 @@ actuator_factor = 1.0
 thermal_coefficient = 1.0
 armor_points = 0.0
 damage_bonus = 0.5
-mesh_surface_indices = PackedInt32Array()
+mesh_surface_indices = PackedInt32Array(9)
 origin_faction = 0
