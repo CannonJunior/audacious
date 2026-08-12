@@ -1,5 +1,6 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=17 format=3]
 
+[ext_resource type="Script"      path="res://scenes/player/HUDController.gd"                 id="12_hud"]
 [ext_resource type="Script"      path="res://scenes/player/InputManager.gd"                  id="1_inputmgr"]
 [ext_resource type="Script"      path="res://scenes/player/SuitBody.gd"                       id="2_suitbody"]
 [ext_resource type="Script"      path="res://systems/movement/MovementController.gd"           id="3_movctrl"]
@@ -10,6 +11,8 @@
 [ext_resource type="Script"      path="res://scenes/player/CameraRig.gd"                      id="8_camrig"]
 [ext_resource type="PackedScene" path="res://suit_workshop/scenes/SuitWorkshop.tscn"           id="9_workshop"]
 [ext_resource type="Script"      path="res://scenes/player/SuitModelVisuals.gd"               id="10_smv"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/OperationsCenter.tscn"      id="11_opscenter"]
+[ext_resource type="PackedScene" path="res://web_view/WebViewPanel.tscn"                       id="13_webview"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.4
@@ -75,5 +78,10 @@ fov = 75.0
 near = 0.1
 
 [node name="HUD" type="CanvasLayer" parent="."]
+script = ExtResource("12_hud")
 
 [node name="SuitWorkshop" parent="HUD" instance=ExtResource("9_workshop")]
+
+[node name="OperationsCenter" parent="HUD" instance=ExtResource("11_opscenter")]
+
+[node name="WebViewPanel" parent="HUD" instance=ExtResource("13_webview")]

@@ -6,19 +6,28 @@
 custom_minimum_size = Vector2(240, 0)
 size_flags_vertical = 3
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 6
+
+[node name="VBox" type="VBoxContainer" parent="MarginContainer"]
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="ManifestHeader" type="Label" parent="VBox"]
+[node name="ObjectLabel" type="Label" parent="MarginContainer/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
-text = "OBJECT MANIFEST"
-theme_override_font_sizes/font_size = 10
+text = "OBJECT"
+theme_override_font_sizes/font_size = 12
 
-[node name="AssemblyRow" type="HBoxContainer" parent="VBox"]
+[node name="AssemblyRow" type="HBoxContainer" parent="MarginContainer/VBox"]
 layout_mode = 2
+theme_override_constants/separation = 6
 
-[node name="AssemblyBar" type="ProgressBar" parent="VBox/AssemblyRow"]
+[node name="AssemblyProgress" type="ProgressBar" parent="MarginContainer/VBox/AssemblyRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
@@ -26,36 +35,43 @@ custom_minimum_size = Vector2(0, 10)
 show_percentage = false
 value = 0.0
 
-[node name="AssemblyLabel" type="Label" parent="VBox/AssemblyRow"]
+[node name="ProgressLabel" type="Label" parent="MarginContainer/VBox/AssemblyRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "0%"
 custom_minimum_size = Vector2(36, 0)
+horizontal_alignment = 1
 theme_override_font_sizes/font_size = 9
 
-[node name="HSep" type="HSeparator" parent="VBox"]
+[node name="HSep" type="HSeparator" parent="MarginContainer/VBox"]
 layout_mode = 2
 
-[node name="ComponentsHeader" type="Label" parent="VBox"]
+[node name="ComponentsHeader" type="Label" parent="MarginContainer/VBox"]
 layout_mode = 2
 text = "COMPONENTS"
 theme_override_font_sizes/font_size = 9
 
-[node name="ComponentList" type="VBoxContainer" parent="VBox"]
+[node name="ComponentsList" type="VBoxContainer" parent="MarginContainer/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 size_flags_vertical = 3
 
-[node name="HSep2" type="HSeparator" parent="VBox"]
+[node name="RecommendationSection" type="VBoxContainer" parent="MarginContainer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
+visible = false
+
+[node name="HSep2" type="HSeparator" parent="MarginContainer/VBox/RecommendationSection"]
 layout_mode = 2
 
-[node name="RecsHeader" type="Label" parent="VBox"]
+[node name="RecsHeader" type="Label" parent="MarginContainer/VBox/RecommendationSection"]
 layout_mode = 2
-text = "RECOMMENDATIONS"
+text = "NEXT ACTIONS"
 theme_override_font_sizes/font_size = 9
 
-[node name="RecommendationList" type="VBoxContainer" parent="VBox"]
+[node name="RecommendationList" type="VBoxContainer" parent="MarginContainer/VBox/RecommendationSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3

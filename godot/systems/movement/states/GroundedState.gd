@@ -13,8 +13,10 @@ func _ready() -> void:
 	_suit = get_parent().get_parent()
 
 func tick(delta: float, input: SuitInputState) -> void:
-	var stats                = _suit.get_stats()
-	var h_basis: Basis       = _suit.camera_rig.get_horizontal_basis()
+	var stats = _suit.get_stats()
+	if _suit.camera_rig == null:
+		return
+	var h_basis: Basis = _suit.camera_rig.get_horizontal_basis()
 
 	# Project WASD onto the camera's horizontal plane
 	var wish_dir := Vector3.ZERO

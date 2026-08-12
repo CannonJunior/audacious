@@ -14,23 +14,27 @@ const RARE_SHIMM: Color = Color(0.85,  0.75,  1.0,  1.0)
 signal route_saved(route: MissionRoute)
 signal practice_requested()
 
-@onready var _approach_label:   Label         = %ApproachLabel
-@onready var _node_list:        VBoxContainer = %NodeList
-@onready var _evasion_section:  Control       = %EvasionSection
-@onready var _evasion_node_list:VBoxContainer = %EvasionNodeList
-@onready var _timeline_bar:     TimelineBar   = %TimelineBar
-@onready var _ai_panel:         AIPartnerPanel = %AIPartnerPanel
-@onready var _btn_add_node:     Button        = %BtnAddNode
-@onready var _btn_save:         Button        = %BtnSaveRoute
-@onready var _btn_practice:     Button        = %BtnPractice
-@onready var _btn_run_sim:      Button        = %BtnRunSim
-@onready var _cargo_warning:    Label         = %CargoWarning
-@onready var _rare_warning:     Label         = %RareWarning
+@onready var _approach_label:   Label              = %ApproachLabel
+@onready var _node_list:        VBoxContainer      = %NodeList
+@onready var _evasion_section:  Control            = %EvasionSection
+@onready var _evasion_node_list:VBoxContainer      = %EvasionNodeList
+@onready var _timeline_bar:     TimelineBar        = %TimelineBar
+@onready var _ai_panel:         AIPartnerPanel     = %AIPartnerPanel
+@onready var _city_viewport:    CitySceneViewport  = %CitySceneViewport
+@onready var _route_renderer:   RouteLineRenderer  = %RouteLineRenderer
+@onready var _node_editor:      ManeuverNodeEditor = %ManeuverNodeEditor
+@onready var _btn_add_node:     Button             = %BtnAddNode
+@onready var _btn_save:         Button             = %BtnSaveRoute
+@onready var _btn_practice:     Button             = %BtnPractice
+@onready var _btn_run_sim:      Button             = %BtnRunSim
+@onready var _cargo_warning:    Label              = %CargoWarning
+@onready var _rare_warning:     Label              = %RareWarning
 
 var _target: HeistTarget = null
 var _route: MissionRoute = null
 var _capability_tags: Array = []
-var _feasibility: Dictionary = {}   # node_id → NodeFeasibility
+var _feasibility: Dictionary = {}     # node_id → NodeFeasibility
+var _selected_node: ManeuverNode = null
 
 # ── Public ────────────────────────────────────────────────────────────────────
 
@@ -38,16 +42,20 @@ func load_target(target: HeistTarget, route: MissionRoute, capability_tags: Arra
 	_target = target
 	_route = route
 	_capability_tags = capability_tags
+	_selected_node = null
 	_approach_label.text = "APPROACH: %s" % (route.approach_id if route.approach_id != &"" else "NONE SELECTED")
 	_recheck_feasibility()
 	_refresh_node_list()
 	_refresh_evasion()
 	_timeline_bar.load_route(route)
+	_route_renderer.load_route(route)
+	_node_editor.visible = false
 	_ai_panel.clear()
 
 func set_carrying_rare(rare: RareComponent) -> void:
 	_recheck_feasibility(rare)
 	_refresh_node_list()
+	_route_renderer.load_route(_route, rare != null)
 	var issues := AIPartnerAdvisor.check_rare_transport(_route, rare)
 	_rare_warning.visible = not issues.is_empty()
 	_rare_warning.text = "RARE TRANSPORT: " + " | ".join(issues)
@@ -84,6 +92,11 @@ func _refresh_evasion() -> void:
 
 func _make_node_card(node: ManeuverNode, index: int, feasibility: ManeuverFeasibilityChecker.NodeFeasibility) -> Control:
 	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	card.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			_on_node_card_clicked(node)
+	)
 	var inner := VBoxContainer.new()
 	inner.theme_override_constants = { "separation": 3 }
 	card.add_child(inner)
@@ -167,6 +180,10 @@ func _make_node_card(node: ManeuverNode, index: int, feasibility: ManeuverFeasib
 
 # ── Handlers ──────────────────────────────────────────────────────────────────
 
+func _on_node_card_clicked(node: ManeuverNode) -> void:
+	_selected_node = node
+	_node_editor.load_node(node)
+
 func _ready() -> void:
 	_btn_add_node.pressed.connect(_on_add_node)
 	_btn_save.pressed.connect(_on_save)
@@ -174,6 +191,14 @@ func _ready() -> void:
 	_btn_run_sim.pressed.connect(_on_run_simulation)
 	_cargo_warning.visible = false
 	_rare_warning.visible = false
+	_node_editor.node_changed.connect(_on_node_edited)
+	_node_editor.editor_closed.connect(func(): _selected_node = null)
+
+func _on_node_edited(node: ManeuverNode) -> void:
+	_recheck_feasibility()
+	_refresh_node_list()
+	_timeline_bar.load_route(_route)
+	_route_renderer.load_route(_route)
 
 func _on_add_node() -> void:
 	if not _route:

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="FactionDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/FactionDefinition.gd" id="1_fd"]
+
+[resource]
+script = ExtResource("1_fd")
+faction = 4
+display_name = "Kestrel Syndicate"
+description = "Jury-rigged modified suits. Kestrel's pilots build what they can afford and steal what they can't. No standards, no uniformity — every suit is personal. Street-level, ruthless, and faster to improvise than any official force."
+suit_load_range = Vector2(0.30, 0.85)
+suit_color_primary = Color(0.12, 0.10, 0.09, 1.0)
+suit_color_secondary = Color(0.35, 0.18, 0.08, 1.0)
+suit_color_accent = Color(0.80, 0.40, 0.00, 1.0)
+alert_response_time = 4.0
+prefers_capture = false

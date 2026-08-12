@@ -4,6 +4,7 @@ extends Node3D
 func _ready() -> void:
 	_setup_environment()
 	_build_geometry()
+	_register_scene_items()
 
 func _setup_environment() -> void:
 	var env := WorldEnvironment.new()
@@ -80,6 +81,22 @@ func _add_platform(pos: Vector3, size: Vector3, color: Color) -> void:
 	body.add_child(mesh_inst)
 
 	add_child(body)
+
+func _register_scene_items() -> void:
+	WebViewBridge.clear_items()
+	WebViewBridge.register_item("Ground",              {"pos": "0, 0, 0",     "size": "200×200"})
+	WebViewBridge.register_item("Low Platform",        {"pos": "20, 10, -10", "size": "8×8",    "note": "single jump"})
+	WebViewBridge.register_item("Mid Platform",        {"pos": "-20, 18, -15","size": "8×8",    "note": "boost-assist jump"})
+	WebViewBridge.register_item("High Platform",       {"pos": "0, 35, -30",  "size": "10×10",  "note": "flight required"})
+	WebViewBridge.register_item("Very High Platform",  {"pos": "30, 60, -20", "size": "8×8",    "note": "flight ceiling test"})
+	WebViewBridge.register_item("Gap Platform A",      {"pos": "-40, 2, 0",   "size": "10×10",  "note": "boost sprint"})
+	WebViewBridge.register_item("Gap Platform B",      {"pos": "-70, 2, 0",   "size": "10×10",  "note": "boost sprint"})
+	WebViewBridge.register_item("Ramp",                {"pos": "10, 0, 20",   "size": "6×12",   "note": "-20° pitch"})
+	WebViewBridge.register_item("Tall Wall",           {"pos": "0, 15, -60",  "size": "30×30×2","note": "bumper test"})
+	WebViewBridge.register_item("Canyon Wall L",       {"pos": "-5, 10, 40",  "size": "2×20×40","note": "narrow passage"})
+	WebViewBridge.register_item("Canyon Wall R",       {"pos": "5, 10, 40",   "size": "2×20×40","note": "narrow passage"})
+	WebViewBridge.push_items()
+
 
 func _add_ramp(pos: Vector3, size: Vector3, pitch_deg: float, color: Color) -> void:
 	var body := StaticBody3D.new()

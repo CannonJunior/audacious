@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeistTarget" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://heist_planner/resources/HeistTarget.gd" id="1_ht"]
+
+[resource]
+script = ExtResource("1_ht")
+target_id = &"blacksite_alpha"
+display_name = "Blacksite Alpha"
+target_faction = 1
+target_chunk = Vector2i(12, -8)
+base_security_level = 4
+is_sidequest = false
+objective_item_id = &"quantum_resonance_core"
+objective_display_name = "Quantum Resonance Core"
+objective_rare_role = "primary_power_source"

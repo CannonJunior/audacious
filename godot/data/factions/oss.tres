@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="FactionDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/FactionDefinition.gd" id="1_fd"]
+
+[resource]
+script = ExtResource("1_fd")
+faction = 5
+display_name = "Open Source Syndicate"
+description = "Deliberately eclectic, crowd-funded, community-built suits. OSS pilots are principled and clever. Their security is patchwork but their motivation is ideological — they believe the technology belongs to everyone. The most dangerous opponent isn't the one with the biggest gun."
+suit_load_range = Vector2(0.15, 0.60)
+suit_color_primary = Color(0.20, 0.45, 0.70, 1.0)
+suit_color_secondary = Color(0.55, 0.55, 0.60, 1.0)
+suit_color_accent = Color(0.30, 0.85, 0.45, 1.0)
+alert_response_time = 15.0
+prefers_capture = true

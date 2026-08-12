@@ -30,7 +30,7 @@ func refresh(recs: Array) -> void:
 		_count_lbl.text = ""
 		return
 
-	var top: RecommendationEngine.Recommendation = recs[0]
+	var top = recs[0]
 
 	_category_lbl.text = _cat_label(top.category)
 	_category_lbl.add_theme_color_override("font_color",

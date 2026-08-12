@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeistTarget" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://heist_planner/resources/HeistTarget.gd" id="1_ht"]
+
+[resource]
+script = ExtResource("1_ht")
+target_id = &"the_commons"
+display_name = "The Commons"
+target_faction = 5
+target_chunk = Vector2i(8, 15)
+base_security_level = 2
+is_sidequest = false
+objective_item_id = &"temporal_calibration_module"
+objective_display_name = "Temporal Calibration Module"
+objective_rare_role = "timing_sync"

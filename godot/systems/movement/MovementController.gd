@@ -11,7 +11,8 @@ const FlightState = preload("res://systems/movement/states/FlightState.gd")
 
 enum State { GROUNDED, AIRBORNE, FLIGHT }
 
-const GRAVITY := 9.8
+const GRAVITY     := 9.8
+const TURN_SPEED  := 2.62   # radians/s ≈ 150°/s
 
 var current_state: State = State.GROUNDED
 
@@ -33,6 +34,10 @@ func handle_input(state: SuitInputState) -> void:
 func tick(delta: float) -> void:
 	var input := _pending_input
 	_pending_input = SuitInputState.new()
+
+	# Rotate the suit body before movement so wish_dir uses the updated facing.
+	if input.turn_delta != 0.0:
+		_suit.rotation.y += input.turn_delta * TURN_SPEED * delta
 
 	_process_transitions(input, delta)
 
@@ -57,7 +62,7 @@ func _process_transitions(input: SuitInputState, delta: float) -> void:
 		State.AIRBORNE:
 			if on_floor:
 				_on_land()
-			elif stats.flight_available and input.boost_held and airborne_state.can_enter_flight():
+			elif stats.flight_available and input.boost_pressed:
 				flight_state.enter(_suit.velocity)
 				_transition(State.FLIGHT)
 			else:

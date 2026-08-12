@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="FactionDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/FactionDefinition.gd" id="1_fd"]
+
+[resource]
+script = ExtResource("1_fd")
+faction = 2
+display_name = "Government Intelligence"
+description = "Stealth suits. Operate in pairs or solo — never more. Their strength is information. They know who you are before you know they're watching."
+suit_load_range = Vector2(0.20, 0.45)
+suit_color_primary = Color(0.08, 0.08, 0.10, 1.0)
+suit_color_secondary = Color(0.12, 0.12, 0.15, 1.0)
+suit_color_accent = Color(0.10, 0.60, 0.80, 1.0)
+alert_response_time = 20.0
+prefers_capture = true

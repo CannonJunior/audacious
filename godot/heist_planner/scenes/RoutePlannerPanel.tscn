@@ -1,8 +1,11 @@
-[gd_scene load_steps=4 format=3 uid="uid://routeplanner"]
+[gd_scene load_steps=7 format=3 uid="uid://routeplanner"]
 
 [ext_resource type="Script" path="res://heist_planner/ui/RoutePlannerPanel.gd" id="1_script"]
 [ext_resource type="PackedScene" path="res://heist_planner/scenes/TimelineBar.tscn" id="2_timeline"]
 [ext_resource type="PackedScene" path="res://heist_planner/scenes/AIPartnerPanel.tscn" id="3_ai"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/CitySceneViewport.tscn" id="4_city"]
+[ext_resource type="Script" path="res://heist_planner/ui/RouteLineRenderer.gd" id="5_renderer"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/ManeuverNodeEditor.tscn" id="6_editor"]
 
 [node name="RoutePlannerPanel" type="Control" script=ExtResource("1_script")]
 size_flags_horizontal = 3
@@ -45,53 +48,94 @@ visible = false
 [node name="MainHBox" type="HSplitContainer" parent="VBox"]
 layout_mode = 2
 size_flags_vertical = 3
-split_offset = -260
+split_offset = 260
 
-[node name="NodeScrollContainer" type="ScrollContainer" parent="VBox/MainHBox"]
+[node name="LeftVBox" type="VBoxContainer" parent="VBox/MainHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 0
+
+[node name="ViewportStack" type="Control" parent="VBox/MainHBox/LeftVBox"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="NodeVBox" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer"]
+[node name="CitySceneViewport" type="SubViewportContainer" parent="VBox/MainHBox/LeftVBox/ViewportStack" instance=ExtResource("4_city")]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RouteLineRenderer" type="Control" parent="VBox/MainHBox/LeftVBox/ViewportStack"]
+unique_name_in_owner = true
+script = ExtResource("5_renderer")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="NodeEditorWrapper" type="VBoxContainer" parent="VBox/MainHBox/LeftVBox"]
+layout_mode = 2
+
+[node name="ManeuverNodeEditor" type="PanelContainer" parent="VBox/MainHBox/LeftVBox/NodeEditorWrapper" instance=ExtResource("6_editor")]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="RightVBox" type="VBoxContainer" parent="VBox/MainHBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 4
+
+[node name="NodeScrollContainer" type="ScrollContainer" parent="VBox/MainHBox/RightVBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="NodeVBox" type="VBoxContainer" parent="VBox/MainHBox/RightVBox/NodeScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 4
 
-[node name="NodesHeader" type="Label" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+[node name="NodesHeader" type="Label" parent="VBox/MainHBox/RightVBox/NodeScrollContainer/NodeVBox"]
 layout_mode = 2
 text = "ROUTE NODES"
 theme_override_font_sizes/font_size = 9
 
-[node name="NodeList" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+[node name="NodeList" type="VBoxContainer" parent="VBox/MainHBox/RightVBox/NodeScrollContainer/NodeVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="EvasionSection" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+[node name="EvasionSection" type="VBoxContainer" parent="VBox/MainHBox/RightVBox/NodeScrollContainer/NodeVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 visible = false
 
-[node name="EvasionHeader" type="Label" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox/EvasionSection"]
+[node name="EvasionHeader" type="Label" parent="VBox/MainHBox/RightVBox/NodeScrollContainer/NodeVBox/EvasionSection"]
 layout_mode = 2
 text = "EVASION ADDENDUM"
 theme_override_font_sizes/font_size = 9
 
-[node name="EvasionNodeList" type="VBoxContainer" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox/EvasionSection"]
+[node name="EvasionNodeList" type="VBoxContainer" parent="VBox/MainHBox/RightVBox/NodeScrollContainer/NodeVBox/EvasionSection"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 3
 
-[node name="BtnAddNode" type="Button" parent="VBox/MainHBox/NodeScrollContainer/NodeVBox"]
+[node name="BtnAddNode" type="Button" parent="VBox/MainHBox/RightVBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "+ ADD NODE"
 
-[node name="AIPartnerPanel" type="PanelContainer" parent="VBox/MainHBox" instance=ExtResource("3_ai")]
+[node name="AIPartnerPanel" type="PanelContainer" parent="VBox/MainHBox/RightVBox" instance=ExtResource("3_ai")]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 0
 
 [node name="BottomRow" type="HBoxContainer" parent="VBox"]
 layout_mode = 2

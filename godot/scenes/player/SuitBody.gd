@@ -14,19 +14,27 @@ const SuitPresets        = preload("res://data/SuitPresets.gd")
 const SAVE_PATH := "user://suit_config.tres"
 
 var configuration: SuitConfiguration
-var camera_rig: CameraRig
+var camera_rig:    CameraRig          # assigned in _ready() to keep @onready sequence intact
 
 @onready var movement_controller: MovementController = $MovementController
 @onready var flight_controller:   FlightController   = $FlightController
 
 
 func _ready() -> void:
-	camera_rig = $CameraRig
+	var cr := get_node_or_null("CameraRig")
+	if cr is CameraRig:
+		camera_rig = cr
+	elif cr == null:
+		push_error("SuitBody: no child named 'CameraRig' — children: %s" % [str(get_children().map(func(n): return n.name))])
+	else:
+		push_error("SuitBody: CameraRig child is %s (script=%s), expected CameraRig script" % [cr.get_class(), str(cr.get_script())])
 
 	if ResourceLoader.exists(SAVE_PATH):
 		configuration = ResourceLoader.load(SAVE_PATH) as SuitConfiguration
 	if configuration == null:
 		configuration = SuitPresets.scout()
+	if configuration == null:
+		push_error("SuitBody: configuration is null after fallback — SuitPresets.scout() failed")
 
 	EventBus.configuration_changed.connect(_on_configuration_changed)
 	# Deferred so SuitWorkshop (a sibling/child of HUD) has connected its listener first.
@@ -34,6 +42,8 @@ func _ready() -> void:
 
 
 func _emit_initial_config() -> void:
+	if configuration == null:
+		return
 	EventBus.configuration_changed.emit(configuration)
 	EventBus.suit_stats_updated.emit(configuration.get_stats())
 
@@ -50,6 +60,9 @@ func apply_input(state: SuitInputState) -> void:
 
 
 func get_stats() -> SuitStats:
+	if configuration == null:
+		push_error("SuitBody.get_stats: configuration is null")
+		return SuitStats.new()
 	return configuration.get_stats()
 
 

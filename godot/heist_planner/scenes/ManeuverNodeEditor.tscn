@@ -1,0 +1,150 @@
+[gd_scene load_steps=2 format=3 uid="uid://maneuvereditor"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/ManeuverNodeEditor.gd" id="1_script"]
+
+[node name="ManeuverNodeEditor" type="PanelContainer" script=ExtResource("1_script")]
+custom_minimum_size = Vector2(0, 0)
+size_flags_horizontal = 3
+visible = false
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="VBox" type="VBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="TitleRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="MarginContainer/VBox/TitleRow"]
+layout_mode = 2
+text = "EDIT NODE"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 10
+
+[node name="BtnCloseEditor" type="Button" parent="MarginContainer/VBox/TitleRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "✕"
+flat = true
+
+[node name="LabelRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LabelName" type="Label" parent="MarginContainer/VBox/LabelRow"]
+layout_mode = 2
+text = "Label"
+custom_minimum_size = Vector2(72, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="NodeLabelEdit" type="LineEdit" parent="MarginContainer/VBox/LabelRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Node label"
+
+[node name="TypeRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="TypeName" type="Label" parent="MarginContainer/VBox/TypeRow"]
+layout_mode = 2
+text = "Type"
+custom_minimum_size = Vector2(72, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="NodeTypeOption" type="OptionButton" parent="MarginContainer/VBox/TypeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="TimingRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="WinName" type="Label" parent="MarginContainer/VBox/TimingRow"]
+layout_mode = 2
+text = "Window (s)"
+custom_minimum_size = Vector2(72, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="TimingWindowSpin" type="SpinBox" parent="MarginContainer/VBox/TimingRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 1.0
+max_value = 120.0
+step = 0.5
+value = 5.0
+
+[node name="DurRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="DurName" type="Label" parent="MarginContainer/VBox/DurRow"]
+layout_mode = 2
+text = "Duration (s)"
+custom_minimum_size = Vector2(72, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="EstDurationSpin" type="SpinBox" parent="MarginContainer/VBox/DurRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.5
+max_value = 60.0
+step = 0.5
+value = 3.0
+
+[node name="MarginLabel" type="Label" parent="MarginContainer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Margin: —"
+theme_override_font_sizes/font_size = 9
+
+[node name="GhostRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="GhostName" type="Label" parent="MarginContainer/VBox/GhostRow"]
+layout_mode = 2
+text = "Ghost risk"
+custom_minimum_size = Vector2(72, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="GhostRiskSpin" type="SpinBox" parent="MarginContainer/VBox/GhostRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+min_value = 0.0
+max_value = 100.0
+step = 1.0
+suffix = "%"
+value = 30.0
+
+[node name="CapsRow" type="HBoxContainer" parent="MarginContainer/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CapsName" type="Label" parent="MarginContainer/VBox/CapsRow"]
+layout_mode = 2
+text = "Requires"
+custom_minimum_size = Vector2(72, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="CapabilitiesEdit" type="LineEdit" parent="MarginContainer/VBox/CapsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "grapple, biometric_bypass, ..."
+
+[node name="BtnApplyNode" type="Button" parent="MarginContainer/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "APPLY CHANGES"

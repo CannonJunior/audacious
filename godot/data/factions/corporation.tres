@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="FactionDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://data/FactionDefinition.gd" id="1_fd"]
+
+[resource]
+script = ExtResource("1_fd")
+faction = 3
+display_name = "Meridian Corporation"
+description = "Polished cutting-edge suits. Meridian funds its own private security division — the suits are as much brand statement as weapon. Private airspace, proprietary landing pads, and the best sensor arrays money can buy."
+suit_load_range = Vector2(0.40, 0.70)
+suit_color_primary = Color(0.90, 0.90, 0.92, 1.0)
+suit_color_secondary = Color(0.30, 0.32, 0.38, 1.0)
+suit_color_accent = Color(0.00, 0.65, 0.95, 1.0)
+alert_response_time = 10.0
+prefers_capture = false

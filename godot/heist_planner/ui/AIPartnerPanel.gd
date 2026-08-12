@@ -29,7 +29,7 @@ func clear() -> void:
 	for child in _suggestions.get_children():
 		child.queue_free()
 
-func show_stress_report(report: AIPartnerAdvisor.RouteStressReport) -> void:
+func show_stress_report(report) -> void:
 	_idle_lbl.visible = false
 	_overall_lbl.visible = true
 	_node_results.visible = true
@@ -46,7 +46,7 @@ func show_stress_report(report: AIPartnerAdvisor.RouteStressReport) -> void:
 	for child in _suggestions.get_children():
 		child.queue_free()
 
-	for result: AIPartnerAdvisor.NodeStressResult in report.node_results:
+	for result in report.node_results:
 		_node_results.add_child(_make_node_result_row(result, result.node_id == report.weakest_node_id))
 		if not result.suggestions.is_empty() and result.node_id == report.weakest_node_id:
 			for s: String in result.suggestions:
@@ -62,12 +62,12 @@ func show_approach_suggestions(suggestions: Array) -> void:
 	_suggestions.visible = true
 	for child in _suggestions.get_children():
 		child.queue_free()
-	for s: AIPartnerAdvisor.ApproachSuggestion in suggestions:
+	for s in suggestions:
 		_suggestions.add_child(_make_approach_suggestion(s))
 
 # ── Row builders ──────────────────────────────────────────────────────────────
 
-func _make_node_result_row(result: AIPartnerAdvisor.NodeStressResult, is_weakest: bool) -> Control:
+func _make_node_result_row(result, is_weakest: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.theme_override_constants = { "separation": 6 }
 
@@ -110,7 +110,7 @@ func _make_node_result_row(result: AIPartnerAdvisor.NodeStressResult, is_weakest
 
 	return row
 
-func _make_approach_suggestion(s: AIPartnerAdvisor.ApproachSuggestion) -> Control:
+func _make_approach_suggestion(s) -> Control:
 	var row := HBoxContainer.new()
 
 	var prob_lbl := Label.new()

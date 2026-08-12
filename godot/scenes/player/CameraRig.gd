@@ -8,15 +8,19 @@ const MovementController = preload("res://systems/movement/MovementController.gd
 const SuitStats = preload("res://data/SuitStats.gd")
 
 const FOLLOW_SPEED   := 10.0
-const PITCH_MIN_DEG  := -70.0
-const PITCH_MAX_DEG  :=  60.0
 const FOV_DEFAULT    := 75.0
 const FOV_SPRINT     := 85.0
 const FOV_FLIGHT     := 90.0
 const FOV_LERP_SPEED := 6.0
 
-var _yaw: float   = 0.0
-var _pitch: float = 0.0
+# Fixed camera angle: slight downward look, positioned directly behind the suit.
+# Negative pitch = camera above the suit looking down; below dive-bonus threshold (0.25 rad).
+const FIXED_PITCH := -0.22   # radians ≈ 12.5° downward
+
+# Z-reach of the spring arm (spring_length * cos(FIXED_PITCH) ≈ 5 * 0.976).
+# Lag must stay below this so the suit never overtakes the camera.
+const SPRING_Z_REACH := 4.5  # metres, conservative
+
 var _suit  # SuitBody, set in _ready
 var _current_fov: float = FOV_DEFAULT
 
@@ -28,28 +32,18 @@ func _ready() -> void:
 	global_position = _suit.global_position
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
-func _input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sens := GameSettings.mouse_sensitivity * 0.1
-		_yaw  -= event.relative.x * sens
-		var pitch_delta: float = event.relative.y * sens
-		if GameSettings.invert_y:
-			pitch_delta = -pitch_delta
-		_pitch = clampf(_pitch + pitch_delta, deg_to_rad(PITCH_MIN_DEG), deg_to_rad(PITCH_MAX_DEG))
-
-	elif event.is_action_pressed("pause"):
-		var captured := Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
-		Input.set_mouse_mode(
-			Input.MOUSE_MODE_VISIBLE if captured else Input.MOUSE_MODE_CAPTURED
-		)
-
 func _process(delta: float) -> void:
-	# Soft-follow the suit's world position
-	global_position = global_position.lerp(_suit.global_position, FOLLOW_SPEED * delta)
+	# Scale follow speed so the lag never exceeds the spring arm's backward reach.
+	# At boost speed (60 m/s) the default FOLLOW_SPEED of 10 produces ~6 m of lag,
+	# which lets the suit overtake the camera; clamping lag to SPRING_Z_REACH prevents this.
+	var suit_speed: float  = _suit.velocity.length()
+	var follow_speed: float = maxf(FOLLOW_SPEED, suit_speed / SPRING_Z_REACH * 1.2)
+	global_position = global_position.lerp(_suit.global_position, minf(follow_speed * delta, 1.0))
 
-	# Apply look rotation (yaw on this node, pitch on spring arm pivot)
-	rotation.y = _yaw
-	spring_arm.rotation.x = _pitch
+	# Stay directly behind the suit — PI offset places the spring arm on the opposite
+	# side of the suit's facing direction so the camera is always at the suit's back.
+	rotation.y = _suit.rotation.y + PI
+	spring_arm.rotation.x = FIXED_PITCH
 
 	# Speed-sensitive FOV
 	var speed: float = _suit.velocity.length()
@@ -61,10 +55,10 @@ func _process(delta: float) -> void:
 	_current_fov = lerpf(_current_fov, target_fov, FOV_LERP_SPEED * delta)
 	camera.fov = _current_fov
 
-## Returns a Basis rotated only around Y (yaw) for horizontal movement calculations.
+## Horizontal basis aligned to the suit's own facing — used by movement states.
 func get_horizontal_basis() -> Basis:
-	return Basis(Vector3.UP, _yaw)
+	return Basis(Vector3.UP, _suit.rotation.y)
 
-## Returns pitch in radians. Positive = looking down.
+## Returns fixed camera pitch. Positive = looking down (below dive-bonus threshold).
 func get_pitch() -> float:
-	return _pitch
+	return FIXED_PITCH

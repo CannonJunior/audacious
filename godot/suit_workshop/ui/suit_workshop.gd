@@ -58,6 +58,14 @@ func _input(event: InputEvent) -> void:
 		visible = not visible
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible else Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_mission_board"):
+		var ops := get_parent().get_node_or_null("OperationsCenter")
+		if ops:
+			ops.visible = not ops.visible
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if ops.visible else Input.MOUSE_MODE_CAPTURED
+		else:
+			push_error("SuitWorkshop: OperationsCenter not found in HUD — check console for load errors")
+		get_viewport().set_input_as_handled()
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

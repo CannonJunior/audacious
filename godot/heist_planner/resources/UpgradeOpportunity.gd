@@ -41,16 +41,34 @@ enum State { UNDISCOVERED, LOCKED, OPPORTUNITY, ACTIVE, COMPLETE, LOST }
 @export var preview_mass_delta_kg: float = 0.0
 @export var preview_endurance_delta: float = 0.0
 @export var reward_component_id: StringName = &""
+@export var grants_capability_tags: Array[String] = []
+
+# ── Discovery trigger ─────────────────────────────────────────────────────────
+
+## Intel field_id that, when hacked, surfaces this opportunity from UNDISCOVERED.
+@export var discovery_trigger_field: StringName = &""
+
+# ── Shortcuts for UI (alias the preview_* names) ──────────────────────────────
+
+var delta_speed_modifier: float:
+	get: return preview_speed_delta
+var delta_stealth_modifier: float:
+	get: return preview_stealth_delta
+var delta_endurance_modifier: float:
+	get: return preview_endurance_delta
+var time_sensitive: bool:
+	get: return is_time_limited()
 
 # ── Accessors ─────────────────────────────────────────────────────────────────
 
 func is_time_limited() -> bool:
 	return expiry_game_time > 0.0
 
-func hours_remaining(current_game_time: float) -> float:
+func hours_remaining(current_game_time: float = -1.0) -> float:
 	if expiry_game_time <= 0.0:
 		return -1.0
-	return (expiry_game_time - current_game_time) / 3600.0
+	var now: float = current_game_time if current_game_time >= 0.0 else WorldStateManager.game_time
+	return (expiry_game_time - now) / 3600.0
 
 func is_available() -> bool:
 	return state == State.OPPORTUNITY or state == State.ACTIVE

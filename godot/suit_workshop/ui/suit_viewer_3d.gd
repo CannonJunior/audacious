@@ -181,7 +181,43 @@ func _load_suit() -> void:
 
 	_find_mesh_instances(_suit_root, _mesh_instances)
 	_build_materials()
+	_center_suit()
 	_is_loaded = true
+
+
+func _center_suit() -> void:
+	var aabb := _combined_aabb()
+	if aabb.size == Vector3.ZERO:
+		return
+
+	# Translate suit root so feet land at Y=0 and it's centered on X/Z.
+	var c := aabb.get_center()
+	_suit_root.position = Vector3(-c.x, -aabb.position.y, -c.z)
+
+	# Camera: look at a point slightly above the suit's vertical center (head bias),
+	# and pull back far enough for the full figure to fill ~75 % of frame height.
+	var suit_height: float = aabb.size.y
+	var look_y:      float = suit_height * 0.55
+	var cam: Camera3D      = $Camera3D
+	var half_fov:    float = deg_to_rad(cam.fov * 0.5)
+	var dist:        float = (suit_height * 0.5) / (tan(half_fov) * 0.75)
+
+	cam.position = Vector3(0.0, look_y, dist)
+	cam.look_at(Vector3(0.0, look_y, 0.0), Vector3.UP)
+
+
+func _combined_aabb() -> AABB:
+	var combined := AABB()
+	var first    := true
+	for mi: MeshInstance3D in _mesh_instances:
+		if mi.mesh == null:
+			continue
+		# Transform mesh AABB into suit_root's local space.
+		var to_root: Transform3D = _suit_root.global_transform.affine_inverse() * mi.global_transform
+		var a: AABB = to_root * mi.get_aabb()
+		combined = a if first else combined.merge(a)
+		first = false
+	return combined
 
 
 func _find_mesh_instances(node: Node, result: Array) -> void:

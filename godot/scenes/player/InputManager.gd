@@ -31,8 +31,12 @@ func _physics_process(_delta: float) -> void:
 
 	var state := SuitInputState.new()
 
-	# Movement (WASD) — raw 2D; MovementController projects onto camera horizontal basis
-	state.move_direction = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	# W/S = forward/back; Q/E = strafe; A/D = turn
+	state.move_direction = Vector2(
+		-Input.get_axis("move_left", "move_right"),    # Q/E strafe (negate: engine axis is flipped)
+		Input.get_axis("move_forward", "move_back"),   # W/S (forward = negative)
+	)
+	state.turn_delta = -Input.get_axis("turn_left", "turn_right")
 
 	# Boost (Space): pressed = jump/burst, held = sustain flight
 	state.boost_pressed  = Input.is_action_just_pressed("boost")

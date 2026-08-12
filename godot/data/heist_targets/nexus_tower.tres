@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeistTarget" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://heist_planner/resources/HeistTarget.gd" id="1_ht"]
+
+[resource]
+script = ExtResource("1_ht")
+target_id = &"nexus_tower"
+display_name = "Nexus Tower"
+target_faction = 3
+target_chunk = Vector2i(2, -2)
+base_security_level = 3
+is_sidequest = false
+objective_item_id = &"exotic_matter_regulator"
+objective_display_name = "Exotic Matter Regulator"
+objective_rare_role = "containment_field"

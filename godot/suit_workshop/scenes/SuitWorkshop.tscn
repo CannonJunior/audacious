@@ -55,7 +55,6 @@ unique_name_in_owner = true
 [node name="WorldEnvironment" type="WorldEnvironment" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
 
 [node name="Camera3D" type="Camera3D" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
-transform = Transform3D(1, 0, 0, 0, 0.94, 0.34, 0, -0.34, 0.94, 0, 0.9, 2.8)
 
 [node name="MainLight" type="DirectionalLight3D" parent="MainLayout/ViewerSection/ViewportContainer/SuitViewport/SuitViewer3D"]
 transform = Transform3D(0.87, -0.35, 0.35, 0, 0.71, 0.71, -0.50, -0.61, 0.61, 3, 4, 2)

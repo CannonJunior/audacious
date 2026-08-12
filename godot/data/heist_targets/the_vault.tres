@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeistTarget" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://heist_planner/resources/HeistTarget.gd" id="1_ht"]
+
+[resource]
+script = ExtResource("1_ht")
+target_id = &"the_vault"
+display_name = "The Vault"
+target_faction = 4
+target_chunk = Vector2i(-15, 10)
+base_security_level = 2
+is_sidequest = false
+objective_item_id = &"graviton_field_array"
+objective_display_name = "Graviton Field Array"
+objective_rare_role = "spatial_distortion"

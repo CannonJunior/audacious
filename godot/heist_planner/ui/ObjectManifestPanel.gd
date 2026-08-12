@@ -34,7 +34,7 @@ func refresh_recommendations(recs: Array) -> void:
 	for child in _rec_list.get_children():
 		child.queue_free()
 	var shown := 0
-	for rec: RecommendationEngine.Recommendation in recs:
+	for rec in recs:
 		if shown >= 4:
 			break
 		_rec_list.add_child(_make_rec_row(rec))
@@ -112,7 +112,7 @@ func _make_component_row(comp: RareComponent) -> Control:
 
 	return row
 
-func _make_rec_row(rec: RecommendationEngine.Recommendation) -> Control:
+func _make_rec_row(rec) -> Control:
 	var row := HBoxContainer.new()
 	row.theme_override_constants = { "separation": 6 }
 
@@ -139,9 +139,9 @@ func _on_component_target_pressed(target_id: StringName) -> void:
 	if target:
 		target_selected.emit(target)
 
-func _on_rec_go_pressed(rec: RecommendationEngine.Recommendation) -> void:
+func _on_rec_go_pressed(rec) -> void:
 	if rec.upgrade_id != &"":
-		var opp := UpgradeBoardManager.board.get_opportunity(rec.upgrade_id)
+		var opp: UpgradeOpportunity = UpgradeBoardManager.board.get_opportunity(rec.upgrade_id)
 		if opp:
 			upgrade_selected.emit(opp)
 	elif rec.target_id != &"":

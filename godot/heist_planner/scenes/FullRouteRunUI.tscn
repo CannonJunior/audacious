@@ -1,0 +1,96 @@
+[gd_scene load_steps=3 format=3 uid="uid://fullrouterun"]
+
+[ext_resource type="Script" path="res://heist_planner/ui/FullRouteRunUI.gd" id="1_script"]
+[ext_resource type="PackedScene" path="res://heist_planner/scenes/ManeuverDrillUI.tscn" id="2_drill"]
+
+[node name="FullRouteRunUI" type="Control" script=ExtResource("1_script")]
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 8
+
+[node name="HeaderRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="FullRouteLabel" type="Label" parent="VBox/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "FULL ROUTE RUN"
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 12
+
+[node name="FullNodeProgress" type="Label" parent="VBox/HeaderRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Node 0 / 0"
+theme_override_font_sizes/font_size = 10
+
+[node name="EnduranceRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnduranceName" type="Label" parent="VBox/EnduranceRow"]
+layout_mode = 2
+text = "Endurance"
+custom_minimum_size = Vector2(80, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="EnduranceBar" type="ProgressBar" parent="VBox/EnduranceRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 10)
+show_percentage = false
+value = 100.0
+
+[node name="EnduranceLabel" type="Label" parent="VBox/EnduranceRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "100%"
+custom_minimum_size = Vector2(36, 0)
+theme_override_font_sizes/font_size = 9
+
+[node name="PowerWarning" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "⚠ LOW ENDURANCE"
+theme_override_font_sizes/font_size = 9
+visible = false
+
+[node name="BtnStartFullRun" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "BEGIN FULL ROUTE RUN"
+
+[node name="FullDrillUI" type="Control" parent="VBox" instance=ExtResource("2_drill")]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+visible = false
+
+[node name="FullResultList" type="VBoxContainer" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 3
+visible = false
+
+[node name="FullOutcomeLabel" type="Label" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 13
+visible = false
+
+[node name="BtnFinishFullRun" type="Button" parent="VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "DONE"
+visible = false

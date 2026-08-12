@@ -25,6 +25,8 @@ func is_exhausted() -> bool:
 	return _hover_energy <= 0.0
 
 func tick(delta: float, input: SuitInputState) -> void:
+	if _suit.camera_rig == null or _flight_controller == null:
+		return
 	var stats = _suit.get_stats()
 
 	# Drain energy faster at higher load (heavier suits burn fuel sooner)

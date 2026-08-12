@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="HeistTarget" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://heist_planner/resources/HeistTarget.gd" id="1_ht"]
+
+[resource]
+script = ExtResource("1_ht")
+target_id = &"argus_station"
+display_name = "Argus Station"
+target_faction = 2
+target_chunk = Vector2i(-5, 3)
+base_security_level = 3
+is_sidequest = false
+objective_item_id = &"neural_mesh_lattice"
+objective_display_name = "Neural Mesh Lattice"
+objective_rare_role = "cognitive_interface"

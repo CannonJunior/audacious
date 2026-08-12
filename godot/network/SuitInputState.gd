@@ -5,8 +5,9 @@ class_name SuitInputState
 
 const SuitInputPacket = preload("res://network/SuitInputPacket.gd")
 
-var move_direction: Vector2 = Vector2.ZERO   # WASD on the XZ plane, normalized
-var camera_look: Vector2 = Vector2.ZERO       # mouse delta (x=yaw, y=pitch)
+var move_direction: Vector2 = Vector2.ZERO   # forward/back (y) and strafe (x), normalized
+var turn_delta: float = 0.0                   # A/D: negative = left, positive = right
+var camera_look: Vector2 = Vector2.ZERO       # reserved for network/AI; not used by local input
 
 var boost_pressed: bool = false               # tap: jump / double-tap: boost burst
 var boost_held: bool = false                  # hold: sustained thrust upward

@@ -95,18 +95,10 @@ static func _axis_feedback(axis: String, value: float) -> String:
 static func _ai_analysis(node: ManeuverNode, record: PracticeRecord) -> String:
 	if record.timing_accuracy < 0.60:
 		var late_seconds := (1.0 - record.timing_accuracy) * node.timing_window_seconds
-		return (
-			"Launch %.1fs late relative to optimal. At this node's velocity, "
-			"that's %.1fm of extra arc to compensate. "
-			"Initiate the move as soon as the trigger condition clears." \
-			% [late_seconds, late_seconds * 8.0]  # rough m/s assumption for feedback
-		)
+		return "Launch %.1fs late relative to optimal. At this node's velocity, that's %.1fm of extra arc to compensate. Initiate the move as soon as the trigger condition clears." % [late_seconds, late_seconds * 8.0]
 	if record.position_accuracy < 0.70:
 		return "Landing position drifted — adjust entry angle to tighten the arc."
 	if record.noise_generated < 0.70:
-		return (
-			"Impact noise exceeds threshold. "
-			"Engage dampeners %s before touchdown." \
-			% ("earlier — current timing is close" if record.timing_accuracy < 0.80 else "at current timing")
-		)
+		var timing_note := "earlier — current timing is close" if record.timing_accuracy < 0.80 else "at current timing"
+		return "Impact noise exceeds threshold. Engage dampeners %s before touchdown." % timing_note
 	return "Performance within acceptable margins. Additional runs build consistency."

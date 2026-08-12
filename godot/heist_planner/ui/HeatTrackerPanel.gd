@@ -26,7 +26,7 @@ func refresh() -> void:
 
 	for entry: Dictionary in hot_targets:
 		var target := GameRegistry.get_heist_target(entry.target_id)
-		var display_name := target.display_name if target else entry.target_id
+		var display_name: String = target.display_name if target else str(entry.target_id)
 		_heat_list.add_child(_make_heat_row(display_name, entry.target_id, entry.heat))
 
 	# City-wide alert (WorldStateManager faction alerts aggregated)

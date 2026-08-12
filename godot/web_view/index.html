@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Scene Inspector</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #07070e;
+      color: #d8d8e0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 13px;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #1c1c28;
+      padding-bottom: 12px;
+    }
+
+    h1 {
+      color: #ffa000;
+      font-size: 13px;
+      letter-spacing: 3px;
+      font-weight: normal;
+    }
+
+    #status {
+      font-size: 11px;
+      color: #555;
+    }
+    #status.connected    { color: #00ffcc; }
+    #status.disconnected { color: #ff4040; }
+
+    #count {
+      margin-left: auto;
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 1px;
+    }
+
+    #list {
+      list-style: none;
+    }
+
+    #list li {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 10px 14px;
+      margin-bottom: 4px;
+      background: #0e0e1a;
+      border-left: 3px solid #ffa000;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.08s;
+    }
+
+    #list li:hover    { background: #14142a; }
+    #list li.selected { border-left-color: #00ffcc; background: #0c1a18; }
+    #list li.selected .label { color: #00ffcc; }
+
+    .label {
+      color: #d8d8e0;
+      letter-spacing: 1px;
+    }
+
+    .detail {
+      font-size: 10px;
+      color: #606080;
+      letter-spacing: 0.5px;
+    }
+
+    .detail span + span::before {
+      content: " · ";
+      color: #333;
+    }
+
+    #empty {
+      color: #333;
+      font-size: 12px;
+      padding: 20px 0;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>▸ SCENE INSPECTOR</h1>
+  <span id="status">CONNECTING…</span>
+  <span id="count"></span>
+</header>
+
+<ul id="list"></ul>
+<p id="empty" hidden>No items registered.</p>
+
+<script>
+  const STATUS = document.getElementById('status');
+  const COUNT  = document.getElementById('count');
+  const LIST   = document.getElementById('list');
+  const EMPTY  = document.getElementById('empty');
+
+  let selectedIndex = -1;
+  let items = [];
+
+  function setStatus(state, text) {
+    STATUS.className = state;
+    STATUS.textContent = text;
+  }
+
+  function render(data) {
+    items = data;
+    LIST.innerHTML = '';
+    EMPTY.hidden = items.length > 0;
+    COUNT.textContent = items.length ? items.length + ' ITEMS' : '';
+
+    items.forEach((item, i) => {
+      const li = document.createElement('li');
+      li.dataset.idx = i;
+      if (i === selectedIndex) li.classList.add('selected');
+
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = item.label;
+      li.appendChild(label);
+
+      const entries = Object.entries(item.data || {});
+      if (entries.length) {
+        const detail = document.createElement('div');
+        detail.className = 'detail';
+        entries.forEach(([k, v]) => {
+          const s = document.createElement('span');
+          s.textContent = k + ': ' + v;
+          detail.appendChild(s);
+        });
+        li.appendChild(detail);
+      }
+
+      LIST.appendChild(li);
+    });
+  }
+
+  LIST.addEventListener('click', e => {
+    const li = e.target.closest('li');
+    if (!li) return;
+    const idx = parseInt(li.dataset.idx, 10);
+    selectedIndex = idx;
+    document.querySelectorAll('#list li').forEach(el => el.classList.remove('selected'));
+    li.classList.add('selected');
+    send({ type: 'select', index: idx });
+  });
+
+  let ws;
+
+  function send(obj) {
+    if (ws && ws.readyState === WebSocket.OPEN)
+      ws.send(JSON.stringify(obj));
+  }
+
+  function connect() {
+    setStatus('', 'CONNECTING…');
+    ws = new WebSocket('ws://localhost:9787');
+
+    ws.addEventListener('open', () => {
+      setStatus('connected', 'CONNECTED');
+    });
+
+    ws.addEventListener('close', () => {
+      setStatus('disconnected', 'DISCONNECTED — retrying in 2s…');
+      setTimeout(connect, 2000);
+    });
+
+    ws.addEventListener('error', () => {});
+
+    ws.addEventListener('message', e => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'items') {
+        render(msg.data);
+      } else if (msg.type === 'click') {
+        const el = document.elementFromPoint(msg.x, msg.y);
+        if (el) el.click();
+      }
+    });
+  }
+
+  connect();
+</script>
+</body>
+</html>

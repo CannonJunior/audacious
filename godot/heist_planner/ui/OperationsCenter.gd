@@ -11,16 +11,16 @@ const TEXT_DIM:    Color = Color(0.55,  0.55,  0.60,  1.0)
 const TEXT_MAIN:   Color = Color(0.85,  0.85,  0.88,  1.0)
 const SEP_COLOR:   Color = Color(0.18,  0.18,  0.22,  1.0)
 
-enum Panel { MANIFEST, DOSSIER, ROUTE, PRACTICE, DEBRIEF }
+enum Tab { MANIFEST, DOSSIER, ROUTE, PRACTICE, DEBRIEF }
 
 # ── Nodes ─────────────────────────────────────────────────────────────────────
 
 @onready var _manifest_panel:  ObjectManifestPanel  = %ObjectManifestPanel
-@onready var _heat_panel:      HeatTrackerPanel      = %HeatTrackerPanel
-@onready var _dossier_panel:   HeistPlannerPanel     = %HeistPlannerPanel
-@onready var _route_panel:     RoutePlannerPanel     = %RoutePlannerPanel
+@onready var _heat_panel:      HeatTrackerPanel     = %HeatTrackerPanel
+@onready var _dossier_panel:   HeistPlannerPanel    = %HeistPlannerPanel
+@onready var _route_panel:     RoutePlannerPanel    = %RoutePlannerPanel
 @onready var _practice_panel:  PracticeModeController = %PracticeModeController
-@onready var _debrief_panel:   MissionDebriefPanel   = %MissionDebriefPanel
+@onready var _debrief_panel:   MissionDebriefPanel  = %MissionDebriefPanel
 @onready var _upgrade_popup:   UpgradePreviewPopup   = %UpgradePreviewPopup
 @onready var _rec_bar:         RecommendationBar     = %RecommendationBar
 
@@ -37,10 +37,10 @@ var routes: Dictionary = {}              # StringName(target_id) → MissionRout
 var active_capability_tags: Array = []   # String[]; set from active suit
 
 var _active_target: HeistTarget = null
-var _active_panel: Panel = Panel.MANIFEST
+var _active_panel: Tab = Tab.MANIFEST
 
-const MANIFEST_SAVE := "user://object_manifest.tres"
-const ROUTES_SAVE   := "user://mission_routes.cfg"
+const MANIFEST_SAVE = "user://object_manifest.tres"
+const ROUTES_SAVE   = "user://mission_routes.cfg"
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ func _ready() -> void:
 	_load_routes()
 	_connect_panels()
 	_wire_nav_buttons()
-	_switch_panel(Panel.MANIFEST)
+	_switch_panel(Tab.MANIFEST)
 	visible = false
 
 	EventBus.heist_target_heat_changed.connect(_on_heat_changed)
@@ -57,13 +57,13 @@ func _ready() -> void:
 	EventBus.recommendation_list_updated.connect(_on_recommendations_updated)
 
 
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("open_mission_board"):
-		visible = not visible
-		get_viewport().set_input_as_handled()
-		if visible:
-			_refresh_manifest()
-			_rebuild_recommendations()
+
+func _set_visible(show: bool) -> void:
+	visible = show
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if show else Input.MOUSE_MODE_CAPTURED
+	if show:
+		_refresh_manifest()
+		_rebuild_recommendations()
 
 # ── Public: target selection ──────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ func select_target(target: HeistTarget) -> void:
 	_btn_route.disabled   = target == null
 	_btn_practice.disabled = target == null or not routes.has(target.target_id)
 	if target:
-		_switch_panel(Panel.DOSSIER)
+		_switch_panel(Tab.DOSSIER)
 
 func select_target_by_id(target_id: StringName) -> void:
 	select_target(GameRegistry.get_heist_target(target_id))
@@ -98,21 +98,21 @@ func save_route(route: MissionRoute) -> void:
 # ── Navigation ────────────────────────────────────────────────────────────────
 
 func go_to_dossier() -> void:
-	_switch_panel(Panel.DOSSIER)
+	_switch_panel(Tab.DOSSIER)
 
 func go_to_route() -> void:
 	if _active_target:
 		_route_panel.load_target(_active_target, get_or_create_route(_active_target.target_id), active_capability_tags)
-	_switch_panel(Panel.ROUTE)
+	_switch_panel(Tab.ROUTE)
 
 func go_to_practice() -> void:
 	if _active_target and routes.has(_active_target.target_id):
 		_practice_panel.load_route(routes[_active_target.target_id], active_capability_tags)
-	_switch_panel(Panel.PRACTICE)
+	_switch_panel(Tab.PRACTICE)
 
 func show_debrief(route: MissionRoute, detection: int, node_scores: Dictionary, heat_delta: float, acquired: RareComponent) -> void:
 	_debrief_panel.show_debrief(route, detection, node_scores, heat_delta, acquired)
-	_switch_panel(Panel.DEBRIEF)
+	_switch_panel(Tab.DEBRIEF)
 
 func show_upgrade_preview(opp: UpgradeOpportunity) -> void:
 	_upgrade_popup.show_opportunity(opp)
@@ -120,43 +120,52 @@ func show_upgrade_preview(opp: UpgradeOpportunity) -> void:
 
 # ── Internal: panel switching ─────────────────────────────────────────────────
 
-func _switch_panel(p: Panel) -> void:
+func _switch_panel(p: int) -> void:
 	_active_panel = p
-	_dossier_panel.visible  = p == Panel.DOSSIER
-	_route_panel.visible    = p == Panel.ROUTE
-	_practice_panel.visible = p == Panel.PRACTICE
-	_debrief_panel.visible  = p == Panel.DEBRIEF
+	if _dossier_panel:   _dossier_panel.visible  = p == Tab.DOSSIER
+	if _route_panel:     _route_panel.visible    = p == Tab.ROUTE
+	if _practice_panel:  _practice_panel.visible = p == Tab.PRACTICE
+	if _debrief_panel:   _debrief_panel.visible  = p == Tab.DEBRIEF
 	# MANIFEST panel is always visible in the left sidebar, not the main area
 
-	_btn_manifest.button_pressed = p == Panel.MANIFEST
-	_btn_dossier.button_pressed  = p == Panel.DOSSIER
-	_btn_route.button_pressed    = p == Panel.ROUTE
-	_btn_practice.button_pressed = p == Panel.PRACTICE
+	if _btn_manifest: _btn_manifest.button_pressed = p == Tab.MANIFEST
+	if _btn_dossier:  _btn_dossier.button_pressed  = p == Tab.DOSSIER
+	if _btn_route:    _btn_route.button_pressed    = p == Tab.ROUTE
+	if _btn_practice: _btn_practice.button_pressed = p == Tab.PRACTICE
 
-	if p == Panel.DOSSIER and _active_target:
+	if p == Tab.DOSSIER and _active_target and _dossier_panel:
 		_dossier_panel.load_target(_active_target, active_capability_tags)
-	if p == Panel.ROUTE and _active_target:
+	if p == Tab.ROUTE and _active_target and _route_panel:
 		_route_panel.load_target(_active_target, get_or_create_route(_active_target.target_id), active_capability_tags)
 
 # ── Internal: wiring ──────────────────────────────────────────────────────────
 
 func _connect_panels() -> void:
-	_manifest_panel.target_selected.connect(select_target)
-	_manifest_panel.upgrade_selected.connect(show_upgrade_preview)
-	_dossier_panel.approach_confirmed.connect(_on_approach_confirmed)
-	_dossier_panel.recon_requested.connect(_on_recon_requested)
-	_route_panel.route_saved.connect(save_route)
-	_route_panel.practice_requested.connect(go_to_practice)
-	_practice_panel.session_completed.connect(_on_session_completed)
-	_debrief_panel.debrief_closed.connect(func(): _switch_panel(Panel.MANIFEST))
-	_upgrade_popup.upgrade_committed.connect(_on_upgrade_committed)
-	_upgrade_popup.upgrade_dismissed.connect(func(): _upgrade_popup.hide_popup())
+	if _manifest_panel:
+		_manifest_panel.target_selected.connect(select_target)
+		_manifest_panel.upgrade_selected.connect(show_upgrade_preview)
+	if _dossier_panel:
+		_dossier_panel.approach_confirmed.connect(_on_approach_confirmed)
+		_dossier_panel.recon_requested.connect(_on_recon_requested)
+	if _route_panel:
+		_route_panel.route_saved.connect(save_route)
+		_route_panel.practice_requested.connect(go_to_practice)
+	if _practice_panel:
+		_practice_panel.session_completed.connect(_on_session_completed)
+	if _debrief_panel:
+		_debrief_panel.debrief_closed.connect(func(): _switch_panel(Tab.MANIFEST))
+	if _upgrade_popup:
+		_upgrade_popup.upgrade_committed.connect(_on_upgrade_committed)
+		_upgrade_popup.upgrade_dismissed.connect(func(): _upgrade_popup.hide_popup())
 
 func _wire_nav_buttons() -> void:
-	_btn_manifest.pressed.connect(func(): _switch_panel(Panel.MANIFEST))
-	_btn_dossier.pressed.connect(func(): _switch_panel(Panel.DOSSIER))
+	_btn_manifest.pressed.connect(func(): _switch_panel(Tab.MANIFEST))
+	_btn_dossier.pressed.connect(func(): _switch_panel(Tab.DOSSIER))
 	_btn_route.pressed.connect(go_to_route)
 	_btn_practice.pressed.connect(go_to_practice)
+	var btn_close := get_node_or_null("%BtnClose")
+	if btn_close:
+		btn_close.pressed.connect(func(): _set_visible(false))
 
 # ── Internal: signal handlers ─────────────────────────────────────────────────
 
@@ -165,7 +174,7 @@ func _on_approach_confirmed(approach: ApproachOption) -> void:
 		var route := get_or_create_route(_active_target.target_id)
 		route.approach_id = approach.approach_id
 		_route_panel.load_target(_active_target, route, active_capability_tags)
-	_switch_panel(Panel.ROUTE)
+	_switch_panel(Tab.ROUTE)
 
 func _on_recon_requested(target: HeistTarget) -> void:
 	# Recon is a lightweight mission — start it via QuestEngine with a generated blueprint
@@ -173,8 +182,7 @@ func _on_recon_requested(target: HeistTarget) -> void:
 		AIAgent.request_line(&"recon_briefing", { "target_id": target.target_id })
 
 func _on_session_completed(_records: Array) -> void:
-	# Practice session done; return to route panel so player can review mastery
-	_switch_panel(Panel.ROUTE)
+	_switch_panel(Tab.ROUTE)
 
 func _on_upgrade_committed(_opp: UpgradeOpportunity) -> void:
 	_refresh_manifest()
@@ -193,10 +201,12 @@ func _on_recommendations_updated(recs: Array) -> void:
 # ── Internal: data ────────────────────────────────────────────────────────────
 
 func _refresh_manifest() -> void:
-	_manifest_panel.populate(manifest)
-	_heat_panel.refresh()
+	if _manifest_panel: _manifest_panel.populate(manifest)
+	if _heat_panel:     _heat_panel.refresh()
 
 func _rebuild_recommendations() -> void:
+	if UpgradeBoardManager.board == null:
+		return
 	RecommendationEngine.rebuild(manifest, UpgradeBoardManager.board, routes)
 
 # ── Persistence ───────────────────────────────────────────────────────────────
@@ -206,6 +216,9 @@ func _load_manifest() -> void:
 		var loaded := ResourceLoader.load(MANIFEST_SAVE)
 		if loaded is ObjectManifest:
 			manifest = loaded
+	else:
+		manifest = ObjectManifest.create_seed()
+		ResourceSaver.save(manifest, MANIFEST_SAVE)
 	_manifest_panel.populate(manifest)
 
 func _load_routes() -> void:

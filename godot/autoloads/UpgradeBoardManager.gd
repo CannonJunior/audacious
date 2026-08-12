@@ -16,6 +16,8 @@ func _ready() -> void:
 	EventBus.mission_completed.connect(_on_mission_completed)
 
 func _process(_delta: float) -> void:
+	if board == null:
+		return
 	_check_expiry()
 
 # ── Opportunity management ────────────────────────────────────────────────────
