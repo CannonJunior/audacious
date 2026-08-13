@@ -167,6 +167,7 @@
   function connect() {
     setStatus('', 'CONNECTING…');
     ws = new WebSocket('ws://localhost:9787');
+    ws.binaryType = 'arraybuffer';
 
     ws.addEventListener('open', () => {
       setStatus('connected', 'CONNECTED');
@@ -180,7 +181,9 @@
     ws.addEventListener('error', () => {});
 
     ws.addEventListener('message', e => {
-      const msg = JSON.parse(e.data);
+      const text = typeof e.data === 'string' ? e.data
+                 : new TextDecoder().decode(e.data);
+      const msg = JSON.parse(text);
       if (msg.type === 'items') {
         render(msg.data);
       } else if (msg.type === 'click') {
