@@ -7,6 +7,7 @@ const SuitInputPacket = preload("res://network/SuitInputPacket.gd")
 
 var move_direction: Vector2 = Vector2.ZERO   # forward/back (y) and strafe (x), normalized
 var turn_delta: float = 0.0                   # A/D: negative = left, positive = right
+var roll_delta: float = 0.0                   # Q+A: positive = roll left, E+D: negative = roll right
 var camera_look: Vector2 = Vector2.ZERO       # reserved for network/AI; not used by local input
 
 var boost_pressed: bool = false               # tap: jump / double-tap: boost burst

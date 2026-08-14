@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Attitude Gyro</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #07070e;
+      color: #d8d8e0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 13px;
+      padding: 20px;
+      display: inline-block;
+      min-width: 280px;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #1c1c28;
+      padding-bottom: 10px;
+    }
+
+    h1 {
+      color: #ffa000;
+      font-size: 13px;
+      letter-spacing: 3px;
+      font-weight: normal;
+      white-space: nowrap;
+    }
+
+    #status {
+      font-size: 11px;
+      color: #555;
+    }
+    #status.connected    { color: #00ffcc; }
+    #status.disconnected { color: #ff4040; }
+
+    #readout {
+      margin-left: auto;
+      font-size: 10px;
+      color: #3a4a58;
+      letter-spacing: 1px;
+    }
+
+    /* ── Canvas wrapper ─────────────────────────────────────────────── */
+
+    .gyro-wrap {
+      background: #000810;
+      border: 2px solid #30303c;
+      display: inline-block;
+      line-height: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    /* ── Slip indicator ─────────────────────────────────────────────── */
+
+    .slip-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .slip-label {
+      font-size: 9px;
+      color: #3a4a58;
+      letter-spacing: 1.5px;
+      white-space: nowrap;
+    }
+
+    .slip-track {
+      flex: 1;
+      height: 10px;
+      background: #0e0e1a;
+      border: 1px solid #1c1c28;
+      position: relative;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    /* Ball slides within the track */
+    .slip-ball {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ffa000;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      transition: left 0.05s linear;
+    }
+
+    /* Center mark */
+    .slip-track::after {
+      content: '';
+      position: absolute;
+      left: calc(50% - 0.5px);
+      top: 0; bottom: 0;
+      width: 1px;
+      background: #3a4a58;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ATTITUDE GYR</h1>
+    <span id="status">CONNECTING…</span>
+    <span id="readout">P: +0.0°  B: +0.0°</span>
+  </header>
+
+  <div class="gyro-wrap">
+    <canvas id="gyro" width="240" height="185"></canvas>
+  </div>
+
+  <div class="slip-row">
+    <span class="slip-label">SLIP</span>
+    <div class="slip-track">
+      <div class="slip-ball" id="slip-ball"></div>
+    </div>
+  </div>
+
+  <script>
+    // ── WebSocket ────────────────────────────────────────────────────────────
+
+    const WS_URL = 'ws://localhost:9787';
+    const RETRY_MS = 2000;
+
+    const statusEl  = document.getElementById('status');
+    const readoutEl = document.getElementById('readout');
+    const slipBall  = document.getElementById('slip-ball');
+
+    let pitch = 0, bank = 0;
+    let ws;
+
+    function connect() {
+      ws = new WebSocket(WS_URL);
+      ws.onopen = () => {
+        statusEl.textContent = 'CONNECTED';
+        statusEl.className   = 'connected';
+      };
+      ws.onclose = () => {
+        statusEl.textContent = 'DISCONNECTED';
+        statusEl.className   = 'disconnected';
+        setTimeout(connect, RETRY_MS);
+      };
+      ws.onerror = () => ws.close();
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg.type === 'gyro_data') {
+            pitch = msg.pitch || 0;
+            bank  = msg.bank  || 0;
+            readoutEl.textContent = `P: ${pitch >= 0 ? '+' : ''}${pitch.toFixed(1)}°  B: ${bank >= 0 ? '+' : ''}${bank.toFixed(1)}°`;
+          }
+        } catch (_) {}
+      };
+    }
+
+    connect();
+
+    // ── Canvas drawing ───────────────────────────────────────────────────────
+
+    const canvas  = document.getElementById('gyro');
+    const ctx     = canvas.getContext('2d');
+    const CW      = canvas.width;
+    const CH      = canvas.height;
+    const CX      = CW / 2;
+    const CY      = CH / 2;
+
+    const PIX_PER_DEG = 4.2;
+    const ARC_R       = 80;
+
+    // Sky and ground colours match fire_and_ice reference
+    const C_SKY    = '#060F1C';
+    const C_GROUND = '#1B0C00';
+    const C_HZ     = '#DDDDDD';
+    const C_LADDER = '#5577AA';
+    const C_WINGS  = '#FFAA00';
+    const C_ARC    = '#3A4A58';
+
+    function draw() {
+      const pitchPx = pitch * PIX_PER_DEG;
+      const bankRad = bank  * Math.PI / 180;
+
+      ctx.clearRect(0, 0, CW, CH);
+
+      // ── Rotating ball (sky / ground / pitch ladder) ─────────────────────
+
+      ctx.save();
+      ctx.rect(0, 0, CW, CH);
+      ctx.clip();
+
+      ctx.translate(CX, CY + pitchPx);
+      ctx.rotate(-bankRad);
+
+      const fill = CW * 4;
+
+      ctx.fillStyle = C_SKY;
+      ctx.fillRect(-fill, -fill, fill * 2, fill);
+
+      ctx.fillStyle = C_GROUND;
+      ctx.fillRect(-fill, 0, fill * 2, fill);
+
+      ctx.beginPath();
+      ctx.moveTo(-fill, 0);
+      ctx.lineTo(fill, 0);
+      ctx.strokeStyle = C_HZ;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Pitch ladder lines
+      for (let d = -30; d <= 30; d += 10) {
+        if (d === 0) continue;
+        const y  = -d * PIX_PER_DEG;
+        const hw = Math.abs(d) === 20 ? 52 : 34;
+        const tick = d > 0 ? 4 : -4;
+
+        ctx.beginPath();
+        ctx.moveTo(-hw, y);
+        ctx.lineTo(-5,  y);
+        ctx.moveTo(  5, y);
+        ctx.lineTo( hw, y);
+        ctx.strokeStyle = C_LADDER;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Serifs
+        ctx.beginPath();
+        ctx.moveTo(-hw, y);
+        ctx.lineTo(-hw, y + tick);
+        ctx.moveTo( hw, y);
+        ctx.lineTo( hw, y + tick);
+        ctx.stroke();
+
+        // Degree labels
+        ctx.fillStyle = C_LADDER;
+        ctx.font = '9px "Courier New"';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'right';
+        ctx.fillText(Math.abs(d), -hw - 3, y);
+        ctx.textAlign = 'left';
+        ctx.fillText(Math.abs(d),  hw + 3, y);
+      }
+
+      ctx.restore();
+
+      // ── Fixed aircraft reference wings ──────────────────────────────────
+
+      ctx.strokeStyle = C_WINGS;
+      ctx.lineWidth   = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(CX - 70, CY);
+      ctx.lineTo(CX - 16, CY);
+      ctx.moveTo(CX - 16, CY);
+      ctx.lineTo(CX - 16, CY + 11);
+      ctx.moveTo(CX + 16, CY);
+      ctx.lineTo(CX + 70, CY);
+      ctx.moveTo(CX + 16, CY);
+      ctx.lineTo(CX + 16, CY + 11);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(CX, CY, 4, 0, Math.PI * 2);
+      ctx.fillStyle = C_WINGS;
+      ctx.fill();
+
+      // ── Bank arc ────────────────────────────────────────────────────────
+
+      ctx.beginPath();
+      ctx.arc(CX, CY, ARC_R, -Math.PI * 0.85, -Math.PI * 0.85 + Math.PI * 0.7);
+      ctx.strokeStyle = C_ARC;
+      ctx.lineWidth   = 0.75;
+      ctx.stroke();
+
+      // Bank tick marks
+      for (const d of [-60, -45, -30, -20, -10, 10, 20, 30, 45, 60]) {
+        const a     = -Math.PI / 2 + d * Math.PI / 180;
+        const major = Math.abs(d) % 30 === 0;
+        const inner = ARC_R - (major ? 14 : 8);
+        ctx.beginPath();
+        ctx.moveTo(CX + Math.cos(a) * inner, CY + Math.sin(a) * inner);
+        ctx.lineTo(CX + Math.cos(a) * ARC_R,  CY + Math.sin(a) * ARC_R);
+        ctx.strokeStyle = C_ARC;
+        ctx.lineWidth   = major ? 1.0 : 0.5;
+        ctx.stroke();
+      }
+
+      // ── Bank pointer triangle ────────────────────────────────────────────
+
+      const pa   = -Math.PI / 2 + bankRad;
+      const tipX = CX + Math.cos(pa) * (ARC_R - 2);
+      const tipY = CY + Math.sin(pa) * (ARC_R - 2);
+      const perp = pa + Math.PI / 2;
+      const back = pa + Math.PI;
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(tipX + Math.cos(perp) * 7 + Math.cos(back) * 14,
+                 tipY + Math.sin(perp) * 7 + Math.sin(back) * 14);
+      ctx.lineTo(tipX - Math.cos(perp) * 7 + Math.cos(back) * 14,
+                 tipY - Math.sin(perp) * 7 + Math.sin(back) * 14);
+      ctx.closePath();
+      ctx.fillStyle = C_WINGS;
+      ctx.fill();
+
+      // ── Slip ball ────────────────────────────────────────────────────────
+      // bank drives the ball position; clamped to ±45° range mapped to ±40% of track
+      const slipFrac = Math.max(-1, Math.min(1, bank / 45));
+      const trackW   = slipBall.parentElement.offsetWidth;
+      const pct      = 50 + slipFrac * 40;
+      slipBall.style.left = pct + '%';
+    }
+
+    // ── Render loop ──────────────────────────────────────────────────────────
+
+    function loop() {
+      draw();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>

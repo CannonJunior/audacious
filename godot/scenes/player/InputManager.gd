@@ -25,18 +25,26 @@ func _physics_process(_delta: float) -> void:
 			_suit.get_stats().flight_available,
 		])
 
-	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		_suit.apply_input(SuitInputState.new())
-		return
-
 	var state := SuitInputState.new()
 
-	# W/S = forward/back; Q/E = strafe; A/D = turn
-	state.move_direction = Vector2(
-		-Input.get_axis("move_left", "move_right"),    # Q/E strafe (negate: engine axis is flipped)
-		Input.get_axis("move_forward", "move_back"),   # W/S (forward = negative)
-	)
-	state.turn_delta = -Input.get_axis("turn_left", "turn_right")
+	# E+D together = roll right; Q+A together = roll left.
+	# When a roll combo is active, suppress the individual strafe and turn inputs.
+	var roll_right := Input.is_action_pressed("move_right") and Input.is_action_pressed("turn_right")
+	var roll_left  := Input.is_action_pressed("move_left")  and Input.is_action_pressed("turn_left")
+
+	if roll_right or roll_left:
+		state.roll_delta = 1.0 if roll_right else -1.0
+		state.move_direction = Vector2(
+			0.0,
+			Input.get_axis("move_forward", "move_back"),
+		)
+	else:
+		# W/S = forward/back; Q/E = strafe; A/D = turn
+		state.move_direction = Vector2(
+			-Input.get_axis("move_left", "move_right"),  # Q/E strafe (negate: engine axis is flipped)
+			Input.get_axis("move_forward", "move_back"),
+		)
+		state.turn_delta = -Input.get_axis("turn_left", "turn_right")
 
 	# Boost (Space): pressed = jump/burst, held = sustain flight
 	state.boost_pressed  = Input.is_action_just_pressed("boost")

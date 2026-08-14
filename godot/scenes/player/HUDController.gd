@@ -2,8 +2,10 @@ extends CanvasLayer
 ## Owns HUD-level keyboard input. Simple node with no sub-scene deps —
 ## guaranteed to receive _input() even if child panel scenes fail to load.
 
-var _ops:        Node = null  # OperationsCenter; typed Node to avoid class-cache dep
-var _web_panel:  Node = null  # WebViewPanel
+var _ops:          Node = null  # OperationsCenter; typed Node to avoid class-cache dep
+var _web_panel:    Node = null  # WebViewPanel
+var _flight_panel: Node = null  # FlightInstrumentsPanel
+var _gyro_panel:   Node = null  # AttitudeGyroPanel
 
 func _ready() -> void:
 	_ops = get_node_or_null("OperationsCenter")
@@ -16,13 +18,27 @@ func _ready() -> void:
 			add_child(_ops)
 		else:
 			push_error("HUDController: OperationsCenter.tscn failed to load")
-	_web_panel = get_node_or_null("WebViewPanel")
+	_web_panel    = get_node_or_null("WebViewPanel")
+	_flight_panel = get_node_or_null("FlightInstrumentsPanel")
+	_gyro_panel   = get_node_or_null("AttitudeGyroPanel")
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("open_scene_inspector"):
 		if _web_panel:
 			var show: bool = not _web_panel.visible
 			_web_panel.visible = show
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if show else Input.MOUSE_MODE_CAPTURED
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_attitude_gyro"):
+		if _gyro_panel:
+			var show: bool = not _gyro_panel.visible
+			_gyro_panel.visible = show
+			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if show else Input.MOUSE_MODE_CAPTURED
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("open_flight_instruments"):
+		if _flight_panel:
+			var show: bool = not _flight_panel.visible
+			_flight_panel.visible = show
 			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if show else Input.MOUSE_MODE_CAPTURED
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("open_mission_board"):

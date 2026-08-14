@@ -13,6 +13,7 @@ enum State { GROUNDED, AIRBORNE, FLIGHT }
 
 const GRAVITY     := 9.8
 const TURN_SPEED  := 2.62   # radians/s ≈ 150°/s
+const ROLL_SPEED  := 2.09   # radians/s ≈ 120°/s
 
 var current_state: State = State.GROUNDED
 
@@ -38,6 +39,8 @@ func tick(delta: float) -> void:
 	# Rotate the suit body before movement so wish_dir uses the updated facing.
 	if input.turn_delta != 0.0:
 		_suit.rotation.y += input.turn_delta * TURN_SPEED * delta
+	if input.roll_delta != 0.0:
+		_suit.rotation.z += input.roll_delta * ROLL_SPEED * delta
 
 	_process_transitions(input, delta)
 

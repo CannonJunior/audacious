@@ -1,0 +1,192 @@
+[gd_scene format=3]
+
+[node name="FlightInstrumentsPanel" type="Control"]
+offset_left = 520.0
+offset_top = 60.0
+offset_right = 820.0
+offset_bottom = 330.0
+visible = false
+
+[node name="BG" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.039, 0.039, 0.059, 0.97)
+mouse_filter = 2
+
+[node name="Border" type="ColorRect" parent="."]
+anchor_bottom = 1.0
+offset_right = 3.0
+color = Color(0.0, 1.0, 0.8, 1.0)
+mouse_filter = 2
+
+[node name="VBox" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/separation = 0
+
+[node name="FIHeader" type="ColorRect" parent="VBox"]
+custom_minimum_size = Vector2(0, 38)
+color = Color(0.055, 0.055, 0.082, 1.0)
+
+[node name="FITitle" type="Label" parent="VBox/FIHeader"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_right = -38.0
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1.0)
+text = "▸ FLIGHT INSTRUMENTS"
+vertical_alignment = 1
+mouse_filter = 2
+
+[node name="FICloseBtn" type="Button" parent="VBox/FIHeader"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -38.0
+offset_bottom = 38.0
+flat = true
+text = "✕"
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+theme_override_colors/font_hover_color = Color(0.0, 1.0, 0.8, 1.0)
+
+[node name="Sep" type="ColorRect" parent="VBox"]
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.11, 0.11, 0.16, 1.0)
+mouse_filter = 2
+
+[node name="Pad" type="MarginContainer" parent="VBox"]
+size_flags_vertical = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="Grid" type="GridContainer" parent="VBox/Pad"]
+size_flags_horizontal = 3
+columns = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 6
+
+[node name="ModeKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "MODE"
+mouse_filter = 2
+
+[node name="FIMode" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "—"
+mouse_filter = 2
+
+[node name="SpeedKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "SPEED"
+mouse_filter = 2
+
+[node name="FISpeed" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.627, 0.0, 1.0)
+text = "— m/s"
+mouse_filter = 2
+
+[node name="VSpeedKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "V-SPEED"
+mouse_filter = 2
+
+[node name="FIVSpeed" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "— m/s"
+mouse_filter = 2
+
+[node name="AltKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "ALTITUDE"
+mouse_filter = 2
+
+[node name="FIAltitude" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.627, 0.0, 1.0)
+text = "— m"
+mouse_filter = 2
+
+[node name="HdgKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "HEADING"
+mouse_filter = 2
+
+[node name="FIHeading" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(1.0, 0.627, 0.0, 1.0)
+text = "—°"
+mouse_filter = 2
+
+[node name="EnergySep" type="ColorRect" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.11, 0.11, 0.16, 1.0)
+mouse_filter = 2
+
+[node name="EnergySep2" type="ColorRect" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.11, 0.11, 0.16, 1.0)
+mouse_filter = 2
+
+[node name="EnergyKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "HOVER ENERGY"
+mouse_filter = 2
+
+[node name="FIEnergy" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1.0)
+text = "—%"
+mouse_filter = 2
+
+[node name="LoadKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "LOAD RATIO"
+mouse_filter = 2
+
+[node name="FILoad" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1.0)
+text = "—%"
+mouse_filter = 2
+
+[node name="ThermKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "THERMAL"
+mouse_filter = 2
+
+[node name="FITherm" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1.0)
+text = "—%"
+mouse_filter = 2
