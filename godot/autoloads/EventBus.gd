@@ -13,6 +13,12 @@ signal suit_stats_updated(new_stats)          ## SuitStats
 signal part_equipped(slot, part)              ## slot: SuitPartResource.Slot, part: SuitPartResource
 signal part_unequipped(slot)                  ## SuitPartResource.Slot
 
+# ── Power & Gas Routing ───────────────────────────────────────────────────────
+
+## routes: Dictionary { module_id: StringName -> allocation: float (0.0–1.0) }
+signal power_routes_changed(routes: Dictionary)
+signal gas_routes_changed(routes: Dictionary)
+
 # ── Movement & Physics ────────────────────────────────────────────────────────
 
 signal suit_state_changed(new_state: StringName, position: Vector3)

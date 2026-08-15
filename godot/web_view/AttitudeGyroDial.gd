@@ -10,15 +10,15 @@ const C_LADDER := Color(0.333, 0.467, 0.667)   # #5577AA
 const C_WINGS  := Color(1.0,   0.667, 0.0)     # #FFAA00
 const C_ARC    := Color(0.227, 0.290, 0.345)   # #3A4A58
 
-# Geometry — scaled from fire_and_ice's 150×118 px reference to 200×161 px
-const PIX_PER_DEG := 4.6
-const ARC_R       := 69.0
-const WING_OUT    := 78.0
-const WING_IN     := 18.0
-const WING_DROP   := 12.0
-const HW_MAJOR    := 62.0   # half-width of ±20° pitch lines
-const HW_MINOR    := 45.0   # half-width of ±10°, ±30° pitch lines
-const DOT_R       :=  5.0
+# Geometry — matches gyro.html canvas exactly (240×185 px)
+const PIX_PER_DEG := 4.2
+const ARC_R       := 80.0
+const WING_OUT    := 70.0
+const WING_IN     := 16.0
+const WING_DROP   := 11.0
+const HW_MAJOR    := 52.0   # half-width of ±20° pitch lines
+const HW_MINOR    := 34.0   # half-width of ±10°, ±30° pitch lines
+const DOT_R       :=  4.0
 
 var pitch: float = 0.0
 var bank:  float = 0.0
@@ -90,8 +90,8 @@ func _draw() -> void:
 	var back := pa + PI
 	draw_colored_polygon(PackedVector2Array([
 		tip,
-		Vector2(tip.x + cos(perp) * 9.0 + cos(back) * 18.0,
-		        tip.y + sin(perp) * 9.0 + sin(back) * 18.0),
-		Vector2(tip.x - cos(perp) * 9.0 + cos(back) * 18.0,
-		        tip.y - sin(perp) * 9.0 + sin(back) * 18.0),
+		Vector2(tip.x + cos(perp) * 7.0 + cos(back) * 14.0,
+		        tip.y + sin(perp) * 7.0 + sin(back) * 14.0),
+		Vector2(tip.x - cos(perp) * 7.0 + cos(back) * 14.0,
+		        tip.y - sin(perp) * 7.0 + sin(back) * 14.0),
 	]), C_WINGS)

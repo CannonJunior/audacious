@@ -1,4 +1,4 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script"      path="res://scenes/player/HUDController.gd"                 id="12_hud"]
 [ext_resource type="Script"      path="res://scenes/player/InputManager.gd"                  id="1_inputmgr"]
@@ -15,6 +15,9 @@
 [ext_resource type="PackedScene" path="res://web_view/WebViewPanel.tscn"                       id="13_webview"]
 [ext_resource type="PackedScene" path="res://web_view/FlightInstrumentsPanel.tscn"            id="14_flightpanel"]
 [ext_resource type="PackedScene" path="res://web_view/AttitudeGyroPanel.tscn"                 id="15_gyropanel"]
+[ext_resource type="PackedScene" path="res://web_view/InspectorDetailPanel.tscn"             id="16_detailpanel"]
+[ext_resource type="PackedScene" path="res://web_view/PowerRouterPanel.tscn"               id="17_powerrouter"]
+[ext_resource type="PackedScene" path="res://web_view/GasRouterPanel.tscn"                 id="18_gasrouter"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.4
@@ -91,3 +94,9 @@ script = ExtResource("12_hud")
 [node name="FlightInstrumentsPanel" parent="HUD" instance=ExtResource("14_flightpanel")]
 
 [node name="AttitudeGyroPanel" parent="HUD" instance=ExtResource("15_gyropanel")]
+
+[node name="InspectorDetailPanel" parent="HUD" instance=ExtResource("16_detailpanel")]
+
+[node name="PowerRouterPanel" parent="HUD" instance=ExtResource("17_powerrouter")]
+
+[node name="GasRouterPanel" parent="HUD" instance=ExtResource("18_gasrouter")]

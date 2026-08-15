@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Power Router</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #07070e;
+      color: #d8d8e0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 13px;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px 8px;
+      border-bottom: 1px solid #1c1c28;
+    }
+
+    h1 {
+      color: #ffa000;
+      font-size: 12px;
+      letter-spacing: 3px;
+      font-weight: normal;
+      white-space: nowrap;
+    }
+
+    #status {
+      font-size: 10px;
+      color: #555;
+    }
+    #status.connected    { color: #00ffcc; }
+    #status.disconnected { color: #ff4040; }
+
+    #budget-bar-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #budget-track {
+      flex: 1;
+      height: 6px;
+      background: #1a1a28;
+      position: relative;
+      overflow: visible;
+    }
+
+    #budget-fill {
+      height: 100%;
+      transition: width 0.06s linear, background-color 0.2s;
+    }
+
+    #budget-pct {
+      font-size: 11px;
+      width: 38px;
+      text-align: right;
+      color: #d8d8e0;
+    }
+
+    #budget-lbl {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: #606080;
+      white-space: nowrap;
+    }
+
+    #canvas-wrap {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 6px 0 0;
+    }
+
+    canvas { display: block; }
+
+    /* Tooltip */
+    #tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: #0e0e1a;
+      border: 1px solid #2a2a40;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #d8d8e0;
+      max-width: 200px;
+      display: none;
+      z-index: 10;
+    }
+    #tooltip .tt-name  { color: #ffa000; letter-spacing: 1px; margin-bottom: 3px; }
+    #tooltip .tt-draw  { color: #606080; font-size: 10px; }
+    #tooltip .tt-desc  { color: #888899; font-size: 10px; margin-top: 4px; line-height: 1.4; }
+    #tooltip .tt-hint  { color: #404060; font-size: 9px; margin-top: 6px; font-style: italic; }
+
+    /* Dial modal */
+    #dial-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(7,7,14,0.88);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+    }
+    #dial-overlay.open { display: flex; }
+
+    #dial-wrap {
+      position: relative;
+    }
+
+    #dial-label {
+      text-align: center;
+      color: #ffa000;
+      font-size: 11px;
+      letter-spacing: 2px;
+      margin-bottom: 10px;
+    }
+
+    #dial-hint {
+      text-align: center;
+      color: #404060;
+      font-size: 9px;
+      margin-top: 8px;
+      letter-spacing: 1px;
+    }
+
+    #dial-close {
+      position: absolute;
+      top: -28px;
+      right: 0;
+      background: none;
+      border: 1px solid #333;
+      color: #606080;
+      font-family: inherit;
+      font-size: 10px;
+      padding: 2px 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #dial-close:hover { color: #ff4040; border-color: #ff4040; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>▸ POWER ROUTER</h1>
+  <span id="budget-lbl">LOAD</span>
+  <div id="budget-bar-wrap">
+    <div id="budget-track"><div id="budget-fill"></div></div>
+    <span id="budget-pct">—%</span>
+  </div>
+  <span id="status">CONNECTING…</span>
+</header>
+
+<div id="canvas-wrap">
+  <canvas id="ring" width="560" height="520"></canvas>
+</div>
+
+<div id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-draw" id="tt-draw"></div>
+  <div class="tt-desc" id="tt-desc"></div>
+  <div class="tt-hint" id="tt-hint"></div>
+</div>
+
+<div id="dial-overlay">
+  <div id="dial-wrap">
+    <div id="dial-label">DIAL POWER LEVEL</div>
+    <button id="dial-close">✕ CLOSE</button>
+    <canvas id="dial" width="380" height="380"></canvas>
+    <div id="dial-hint">DRAG CLOCKWISE IN A HOLE — RELEASE TO SET</div>
+  </div>
+</div>
+
+<script>
+// ── Module definitions (defaults; overridden by ws power_state) ─────────────
+
+const CAT_COLOR = {
+  weapon:  '#ffa000',
+  stealth: '#aa00ff',
+  defense: '#00ffcc',
+  sensor:  '#00cc44',
+  support: '#808090',
+};
+
+const DEFAULT_MODULES = [
+  // Inner ring — sensors & support (low draw)
+  { id:'threat_radar',    label:'THREAT\nRADAR',   category:'sensor',  baseDraw:10, minDraw:5,  desc:'360° hostile tracking. Updates every 0.5s.' },
+  { id:'comms_boost',     label:'COMMS\nBOOST',    category:'support', baseDraw:7,  minDraw:3,  desc:'Long-range encrypted uplink to handler.' },
+  { id:'mag_lock',        label:'MAG-LOCK\nSOLES',  category:'support', baseDraw:9,  minDraw:9,  desc:'Electromagnetic adhesion for vertical traversal.' },
+  { id:'med_injector',    label:'MED\nINJECTOR',   category:'support', baseDraw:6,  minDraw:6,  desc:'Auto-response: adrenaline, clotting, blockers.' },
+  { id:'acoustic_liner',  label:'ACOUSTIC\nLINER',  category:'stealth', baseDraw:8,  minDraw:8,  desc:'Piezoelectric panels suppress servo noise.' },
+  { id:'signal_intercept',label:'SIGNAL\nINTERCEPT',category:'sensor',  baseDraw:3,  minDraw:0,  desc:'Passive comms monitoring. Extremely low draw.' },
+  // Outer ring — weapons, stealth, defense, EW
+  { id:'optical_mesh',    label:'OPTICAL\nMESH',   category:'stealth', baseDraw:40, minDraw:25, desc:'Active photonic camouflage. Cannot sprint.' },
+  { id:'railgun_cap',     label:'RAILGUN\nCAP.',    category:'weapon',  baseDraw:35, minDraw:20, desc:'Coil accelerator charge. Spikes during fire.' },
+  { id:'target_lock',     label:'TARGET\nLOCK',     category:'sensor',  baseDraw:14, minDraw:8,  desc:'Precision targeting + lead indicators.' },
+  { id:'ew_suite',        label:'EW\nSUITE',        category:'sensor',  baseDraw:20, minDraw:12, desc:'Jam comms, spoof sensors, hack networks.' },
+  { id:'reflect_plating', label:'REFLECT\nPLATING', category:'defense', baseDraw:10, minDraw:10, desc:'Deflects directed-energy weapons.' },
+  { id:'sonic_lance',     label:'SONIC\nLANCE',     category:'weapon',  baseDraw:18, minDraw:10, desc:'Resonance weapon. Non-lethal at low power.' },
+  { id:'plasma_torch',    label:'PLASMA\nTORCH',    category:'weapon',  baseDraw:28, minDraw:15, desc:'Sustained superheated plasma emitter.' },
+  { id:'emp_vortex',      label:'EMP\nVORTEX',      category:'weapon',  baseDraw:22, minDraw:22, desc:'Single-burst EM pulse. 4s recharge.' },
+  { id:'kinetic_barrier', label:'KINETIC\nBARRIER',  category:'defense', baseDraw:30, minDraw:15, desc:'Energy field absorbs ballistic impacts.' },
+  { id:'point_defense',   label:'POINT\nDEFENSE',   category:'defense', baseDraw:25, minDraw:15, desc:'AI intercepts incoming missiles/grenades.' },
+  { id:'thermal_shroud',  label:'THERMAL\nSHROUD',  category:'stealth', baseDraw:15, minDraw:8,  desc:'IR suppression against thermal cameras.' },
+  { id:'em_damper',       label:'EM\nDAMPER',       category:'stealth', baseDraw:12, minDraw:6,  desc:'Suppresses suit EM emissions. Kills radar.' },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let modules   = DEFAULT_MODULES.map(m => ({ ...m, allocated: 0, unlocked: true }));
+let capacity  = 100;
+
+// interaction
+let hoveredIdx = -1;
+let arcDragging = false;
+let dialOpen    = -1;   // module index with dial open
+let dialHoleIdx = -1;   // which hole is being dragged (-1 = none)
+let dialStartAngle = 0;
+let dialCurrentSnap = 0;  // 0–10 (10% increments, 0 = off)
+
+// ── Geometry ─────────────────────────────────────────────────────────────────
+
+const CW = 560, CH = 520, CX = 280, CY = 268;
+const INNER_R  = 112;  // center-to-hex-center, inner ring
+const OUTER_R  = 200;  // center-to-hex-center, outer ring
+const HEX_R    = 38;   // hex circumradius
+const INNER_N  = 6;
+const OUTER_N  = 12;
+
+// Snap points for arc slider (%)
+const SNAPS = [0, 10, 20, 25, 30, 40, 50, 60, 75, 100];
+
+function hexCenter(i) {
+  const isOuter = i >= INNER_N;
+  const idx     = isOuter ? i - INNER_N : i;
+  const n       = isOuter ? OUTER_N : INNER_N;
+  const r       = isOuter ? OUTER_R : INNER_R;
+  const angle   = -Math.PI / 2 + (2 * Math.PI / n) * idx;
+  return { x: CX + r * Math.cos(angle), y: CY + r * Math.sin(angle) };
+}
+
+function hexPath(ctx, cx, cy, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (Math.PI / 3) * i;  // flat-top
+    const x = cx + r * Math.cos(a);
+    const y = cy + r * Math.sin(a);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function hitHex(mx, my) {
+  const total = INNER_N + OUTER_N;
+  for (let i = 0; i < total; i++) {
+    const { x, y } = hexCenter(i);
+    const dx = mx - x, dy = my - y;
+    if (dx * dx + dy * dy < HEX_R * HEX_R) return i;
+  }
+  return -1;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+
+const ring = document.getElementById('ring');
+const rctx = ring.getContext('2d');
+
+function totalAllocated() {
+  return modules.reduce((s, m) => s + m.allocated, 0);
+}
+
+function drawCore() {
+  const total = totalAllocated();
+  const frac  = Math.min(total / capacity, 1.0);
+  const over  = total > capacity;
+
+  // Background ring
+  rctx.beginPath();
+  rctx.arc(CX, CY, 46, 0, Math.PI * 2);
+  rctx.strokeStyle = '#1a1a28';
+  rctx.lineWidth = 8;
+  rctx.stroke();
+
+  // Fill ring
+  const fillColor = over ? '#ff4040' : frac > 0.8 ? '#ffa000' : '#00ffcc';
+  rctx.beginPath();
+  rctx.arc(CX, CY, 46, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+  rctx.strokeStyle = fillColor;
+  rctx.lineWidth = 6;
+  rctx.stroke();
+
+  // Center text
+  rctx.textAlign = 'center';
+  rctx.textBaseline = 'middle';
+  rctx.fillStyle = over ? '#ff4040' : '#d8d8e0';
+  rctx.font = 'bold 16px "Courier New"';
+  rctx.fillText(Math.round(total) + '%', CX, CY - 5);
+  rctx.font = '9px "Courier New"';
+  rctx.fillStyle = '#606080';
+  rctx.fillText('LOAD', CX, CY + 12);
+
+  // Pulse ring when overloaded
+  if (over) {
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 120);
+    rctx.beginPath();
+    rctx.arc(CX, CY, 50, 0, Math.PI * 2);
+    rctx.strokeStyle = `rgba(255,64,64,${pulse * 0.6})`;
+    rctx.lineWidth = 2;
+    rctx.stroke();
+  }
+}
+
+function drawSpoke(hc, allocated, color) {
+  if (allocated <= 0) return;
+  const frac = allocated / 100;
+  const grad = rctx.createLinearGradient(CX, CY, hc.x, hc.y);
+  grad.addColorStop(0, color + '00');
+  grad.addColorStop(0.5, color + '44');
+  grad.addColorStop(1, color + '88');
+  rctx.beginPath();
+  rctx.moveTo(CX, CY);
+  rctx.lineTo(hc.x, hc.y);
+  rctx.strokeStyle = grad;
+  rctx.lineWidth = 1 + frac * 3;
+  rctx.setLineDash([4, 6]);
+  rctx.lineDashOffset = -(Date.now() / 40) % 10;
+  rctx.stroke();
+  rctx.setLineDash([]);
+}
+
+function drawHex(i, mod) {
+  const hc     = hexCenter(i);
+  const color  = CAT_COLOR[mod.category] || '#888899';
+  const frac   = mod.allocated / 100;
+  const active = mod.allocated >= (mod.minDraw || 0) && mod.allocated > 0;
+  const hov    = i === hoveredIdx;
+
+  // Spoke
+  drawSpoke(hc, mod.allocated, color);
+
+  // Hex fill
+  hexPath(rctx, hc.x, hc.y, HEX_R - 1);
+  if (active) {
+    const fillAlpha = 0.08 + frac * 0.18;
+    rctx.fillStyle = color + Math.round(fillAlpha * 255).toString(16).padStart(2, '0');
+    rctx.fill();
+  } else {
+    rctx.fillStyle = '#0c0c18';
+    rctx.fill();
+  }
+
+  // Hex border
+  hexPath(rctx, hc.x, hc.y, HEX_R - 1);
+  rctx.strokeStyle = hov ? color : (active ? color + '88' : '#252535');
+  rctx.lineWidth   = hov ? 1.5 : 1;
+  rctx.stroke();
+
+  // Outer glow when active
+  if (active || hov) {
+    hexPath(rctx, hc.x, hc.y, HEX_R + 3);
+    rctx.strokeStyle = color + (hov ? '55' : '28');
+    rctx.lineWidth = 3;
+    rctx.stroke();
+  }
+
+  // Allocation arc around hex
+  if (hov || mod.allocated > 0) {
+    const arcStart = -Math.PI * 1.1;
+    const arcEnd   = Math.PI * 0.9;
+    const arcR     = HEX_R + 8;
+    // Track
+    rctx.beginPath();
+    rctx.arc(hc.x, hc.y, arcR, arcStart, arcEnd);
+    rctx.strokeStyle = '#1e1e30';
+    rctx.lineWidth = 3;
+    rctx.lineCap = 'round';
+    rctx.stroke();
+    // Fill
+    if (mod.allocated > 0) {
+      const fillEnd = arcStart + (frac) * (arcEnd - arcStart);
+      rctx.beginPath();
+      rctx.arc(hc.x, hc.y, arcR, arcStart, fillEnd);
+      rctx.strokeStyle = color;
+      rctx.lineWidth = 3;
+      rctx.stroke();
+      // Handle dot
+      const dotA = fillEnd;
+      rctx.beginPath();
+      rctx.arc(hc.x + arcR * Math.cos(dotA), hc.y + arcR * Math.sin(dotA), 4, 0, Math.PI * 2);
+      rctx.fillStyle = hov ? '#ffffff' : color;
+      rctx.fill();
+    }
+    // Min-draw tick
+    if (mod.minDraw > 0) {
+      const minFrac = mod.minDraw / 100;
+      const minA    = arcStart + minFrac * (arcEnd - arcStart);
+      const inner   = arcR - 5, outer = arcR + 5;
+      rctx.beginPath();
+      rctx.moveTo(hc.x + inner * Math.cos(minA), hc.y + inner * Math.sin(minA));
+      rctx.lineTo(hc.x + outer * Math.cos(minA), hc.y + outer * Math.sin(minA));
+      rctx.strokeStyle = '#ff4040';
+      rctx.lineWidth = 1.5;
+      rctx.stroke();
+    }
+  }
+
+  // Label
+  const lines = mod.label.split('\n');
+  rctx.textAlign = 'center';
+  rctx.textBaseline = 'middle';
+  rctx.font = '8px "Courier New"';
+  rctx.fillStyle = active ? color : (hov ? '#aaaacc' : '#404055');
+  const lineH = 9;
+  const startY = hc.y - ((lines.length - 1) * lineH) / 2;
+  lines.forEach((ln, li) => rctx.fillText(ln, hc.x, startY + li * lineH));
+
+  // Draw allocated % below label when active
+  if (mod.allocated > 0) {
+    rctx.font = 'bold 9px "Courier New"';
+    rctx.fillStyle = active ? color : '#ff4040';
+    rctx.fillText(Math.round(mod.allocated) + '%', hc.x, hc.y + 16);
+  }
+}
+
+function drawRing() {
+  rctx.clearRect(0, 0, CW, CH);
+
+  // Faint ring guides
+  [INNER_R, OUTER_R].forEach(r => {
+    rctx.beginPath();
+    rctx.arc(CX, CY, r, 0, Math.PI * 2);
+    rctx.strokeStyle = '#111122';
+    rctx.lineWidth = 1;
+    rctx.setLineDash([2, 8]);
+    rctx.stroke();
+    rctx.setLineDash([]);
+  });
+
+  modules.forEach((mod, i) => drawHex(i, mod));
+  drawCore();
+}
+
+// ── Arc slider drag ───────────────────────────────────────────────────────────
+
+function arcFracFromPoint(hcx, hcy, mx, my) {
+  const ARC_START = -Math.PI * 1.1;
+  const ARC_END   = Math.PI * 0.9;
+  const sweep     = ARC_END - ARC_START;
+  let angle = Math.atan2(my - hcy, mx - hcx);
+  // Normalize angle into the arc range
+  let frac = (angle - ARC_START) / sweep;
+  // wrap-around handling
+  if (frac < -0.1) frac += (2 * Math.PI) / sweep;
+  return Math.max(0, Math.min(1, frac));
+}
+
+function snapFrac(frac) {
+  const pct = frac * 100;
+  let best = SNAPS[0], bestDist = Infinity;
+  SNAPS.forEach(s => { const d = Math.abs(s - pct); if (d < bestDist) { bestDist = d; best = s; } });
+  // If close to a snap (within 4%), use it; otherwise use raw value rounded to nearest int
+  return bestDist < 4 ? best : Math.round(pct);
+}
+
+// ── Routing message ───────────────────────────────────────────────────────────
+
+let _routeTimer = null;
+
+function scheduleRoute() {
+  if (_routeTimer) return;
+  _routeTimer = requestAnimationFrame(() => {
+    _routeTimer = null;
+    const routes = {};
+    modules.forEach(m => { routes[m.id] = m.allocated / 100; });
+    send({ type: 'power_route', routes });
+  });
+}
+
+// ── Canvas interaction ────────────────────────────────────────────────────────
+
+let lastClick = { idx: -1, time: 0 };
+
+ring.addEventListener('mousemove', e => {
+  const rect = ring.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  if (arcDragging && hoveredIdx >= 0) {
+    const hc  = hexCenter(hoveredIdx);
+    const frac = arcFracFromPoint(hc.x, hc.y, mx, my);
+    modules[hoveredIdx].allocated = snapFrac(frac);
+    scheduleRoute();
+    updateBudgetBar();
+    return;
+  }
+
+  const prev = hoveredIdx;
+  hoveredIdx = hitHex(mx, my);
+  if (hoveredIdx !== prev) {
+    updateTooltip(e);
+  }
+});
+
+ring.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const rect = ring.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  hoveredIdx = hitHex(mx, my);
+  if (hoveredIdx >= 0) {
+    arcDragging = true;
+    const hc   = hexCenter(hoveredIdx);
+    const frac = arcFracFromPoint(hc.x, hc.y, mx, my);
+    modules[hoveredIdx].allocated = snapFrac(frac);
+    scheduleRoute();
+    updateBudgetBar();
+  }
+});
+
+ring.addEventListener('mouseup', () => { arcDragging = false; });
+ring.addEventListener('mouseleave', () => { if (!arcDragging) hoveredIdx = -1; hideTooltip(); });
+
+ring.addEventListener('click', e => {
+  const rect = ring.getBoundingClientRect();
+  const idx  = hitHex(e.clientX - rect.left, e.clientY - rect.top);
+  if (idx < 0) return;
+  const now = Date.now();
+  if (idx === lastClick.idx && now - lastClick.time < 350) {
+    openDial(idx);
+  }
+  lastClick = { idx, time: now };
+});
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+
+const tooltip = document.getElementById('tooltip');
+
+function updateTooltip(e) {
+  if (hoveredIdx < 0) { hideTooltip(); return; }
+  const mod = modules[hoveredIdx];
+  document.getElementById('tt-name').textContent = mod.label.replace('\n', ' ');
+  document.getElementById('tt-draw').textContent = `BASE DRAW: ${mod.baseDraw}%  MIN: ${mod.minDraw}%`;
+  document.getElementById('tt-desc').textContent = mod.desc || '';
+  document.getElementById('tt-hint').textContent = 'DRAG ARC TO ADJUST · DOUBLE-CLICK FOR DIAL';
+  tooltip.style.display = 'block';
+  tooltip.style.left    = (e.clientX + 14) + 'px';
+  tooltip.style.top     = (e.clientY - 10) + 'px';
+}
+
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+ring.addEventListener('mousemove', e => {
+  if (hoveredIdx >= 0 && !arcDragging) updateTooltip(e);
+});
+
+// ── Budget bar ────────────────────────────────────────────────────────────────
+
+const budgetFill = document.getElementById('budget-fill');
+const budgetPct  = document.getElementById('budget-pct');
+
+function updateBudgetBar() {
+  const total = totalAllocated();
+  const frac  = Math.min(total / capacity, 1.0);
+  const over  = total > capacity;
+  budgetFill.style.width = (frac * 100) + '%';
+  budgetFill.style.backgroundColor = over ? '#ff4040' : frac > 0.8 ? '#ffa000' : '#00ffcc';
+  budgetPct.textContent = Math.round(total) + '%';
+  budgetPct.style.color = over ? '#ff4040' : '#d8d8e0';
+}
+
+// ── Telephone Dial Modal ──────────────────────────────────────────────────────
+
+const dialCanvas  = document.getElementById('dial');
+const dctx        = dialCanvas.getContext('2d');
+const dialOverlay = document.getElementById('dial-overlay');
+const dialLabel   = document.getElementById('dial-label');
+const dialClose   = document.getElementById('dial-close');
+
+const DIAL_CX = 190, DIAL_CY = 190, DIAL_R = 160;
+const HOLE_R  = 18;
+// 11 holes: 0% = off, 10%–100% in steps of 10
+// Arranged counterclockwise from finger stop (at ~150° = 5-o-clock)
+// Hole 0 nearest stop, hole 10 furthest (most rotation required)
+const STOP_ANGLE = 150 * Math.PI / 180;
+
+function dialHoleAngle(snap) {
+  // snap: 0 (off) to 10 (100%)
+  // Spread 11 holes in a 300° arc, counterclockwise from stop
+  const spreadDeg = 300;
+  const stepDeg   = spreadDeg / 10;
+  return STOP_ANGLE - (snap * stepDeg) * Math.PI / 180;
+}
+
+function drawDial(snapHighlight) {
+  dctx.clearRect(0, 0, 380, 380);
+
+  const mod   = dialOpen >= 0 ? modules[dialOpen] : null;
+  const color = mod ? (CAT_COLOR[mod.category] || '#888899') : '#ffa000';
+
+  // Outer ring (dial body)
+  dctx.beginPath();
+  dctx.arc(DIAL_CX, DIAL_CY, DIAL_R, 0, Math.PI * 2);
+  dctx.strokeStyle = '#2a2a40';
+  dctx.lineWidth   = 18;
+  dctx.stroke();
+  dctx.beginPath();
+  dctx.arc(DIAL_CX, DIAL_CY, DIAL_R, 0, Math.PI * 2);
+  dctx.fillStyle = '#0e0e1a';
+  dctx.fill();
+  dctx.beginPath();
+  dctx.arc(DIAL_CX, DIAL_CY, DIAL_R, 0, Math.PI * 2);
+  dctx.strokeStyle = '#3a3a58';
+  dctx.lineWidth = 2;
+  dctx.stroke();
+
+  // Finger stop arc (small arc at stop position)
+  const stopStart = STOP_ANGLE - 0.15;
+  const stopEnd   = STOP_ANGLE + 0.15;
+  dctx.beginPath();
+  dctx.arc(DIAL_CX, DIAL_CY, DIAL_R + 8, stopStart, stopEnd);
+  dctx.strokeStyle = '#ff4040';
+  dctx.lineWidth   = 6;
+  dctx.lineCap     = 'round';
+  dctx.stroke();
+
+  // Holes
+  for (let snap = 0; snap <= 10; snap++) {
+    const angle = dialHoleAngle(snap);
+    const hx    = DIAL_CX + DIAL_R * Math.cos(angle);
+    const hy    = DIAL_CY + DIAL_R * Math.sin(angle);
+    const pct   = snap * 10;
+    const isHighlight = snap === snapHighlight;
+    const isCurrent   = mod && Math.round(mod.allocated) === pct;
+
+    // Hole background
+    dctx.beginPath();
+    dctx.arc(hx, hy, HOLE_R, 0, Math.PI * 2);
+    dctx.fillStyle = isHighlight ? color + '33' : '#07070e';
+    dctx.fill();
+    dctx.strokeStyle = isHighlight ? color : (isCurrent ? color + 'aa' : '#3a3a58');
+    dctx.lineWidth   = isHighlight ? 2 : 1;
+    dctx.stroke();
+
+    // Hole label
+    dctx.textAlign    = 'center';
+    dctx.textBaseline = 'middle';
+    dctx.font         = '9px "Courier New"';
+    dctx.fillStyle    = isHighlight ? color : (isCurrent ? color + 'cc' : '#505068');
+    dctx.fillText(snap === 0 ? 'OFF' : pct + '%', hx, hy);
+  }
+
+  // Center display
+  dctx.beginPath();
+  dctx.arc(DIAL_CX, DIAL_CY, 52, 0, Math.PI * 2);
+  dctx.fillStyle = '#0a0a18';
+  dctx.fill();
+  dctx.strokeStyle = '#2a2a44';
+  dctx.lineWidth   = 1.5;
+  dctx.stroke();
+
+  if (mod) {
+    dctx.textAlign    = 'center';
+    dctx.textBaseline = 'middle';
+    dctx.font         = '9px "Courier New"';
+    dctx.fillStyle    = color;
+    dctx.fillText(mod.label.replace('\n', ' '), DIAL_CX, DIAL_CY - 10);
+    const dispPct = snapHighlight >= 0 ? snapHighlight * 10 : Math.round(mod.allocated);
+    dctx.font      = 'bold 20px "Courier New"';
+    dctx.fillStyle = snapHighlight >= 0 ? color : '#d8d8e0';
+    dctx.fillText((snapHighlight === 0 ? 'OFF' : dispPct + '%'), DIAL_CX, DIAL_CY + 10);
+  }
+
+  // Dial label at top (clockwise indicator)
+  dctx.textAlign    = 'center';
+  dctx.textBaseline = 'middle';
+  dctx.font         = '8px "Courier New"';
+  dctx.fillStyle    = '#303048';
+  dctx.fillText('◀ COUNTERCLOCKWISE', DIAL_CX, 18);
+}
+
+function openDial(idx) {
+  dialOpen = idx;
+  const mod = modules[idx];
+  dialLabel.textContent = '▸ ' + mod.label.replace('\n', ' ') + ' — DIAL POWER LEVEL';
+  dialOverlay.classList.add('open');
+  drawDial(-1);
+}
+
+function closeDial() {
+  dialOverlay.classList.remove('open');
+  dialOpen = -1;
+  dialHoleIdx = -1;
+}
+
+dialClose.addEventListener('click', closeDial);
+dialOverlay.addEventListener('click', e => { if (e.target === dialOverlay) closeDial(); });
+
+// Dial mouse interaction
+dialCanvas.addEventListener('mousedown', e => {
+  if (dialOpen < 0) return;
+  const rect  = dialCanvas.getBoundingClientRect();
+  const mx    = e.clientX - rect.left, my = e.clientY - rect.top;
+  const dx    = mx - DIAL_CX, dy = my - DIAL_CY;
+  const dist  = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist > DIAL_R - HOLE_R * 2 && dist < DIAL_R + HOLE_R) {
+    // Find nearest hole
+    const angle = Math.atan2(dy, dx);
+    let bestSnap = -1, bestDist = Infinity;
+    for (let snap = 0; snap <= 10; snap++) {
+      const ha   = dialHoleAngle(snap);
+      const hdx  = DIAL_R * Math.cos(ha), hdy = DIAL_R * Math.sin(ha);
+      const ex   = mx - DIAL_CX - hdx, ey = my - DIAL_CY - hdy;
+      const d    = Math.sqrt(ex * ex + ey * ey);
+      if (d < HOLE_R && d < bestDist) { bestDist = d; bestSnap = snap; }
+    }
+    if (bestSnap >= 0) {
+      dialHoleIdx    = bestSnap;
+      dialStartAngle = Math.atan2(dy, dx);
+      drawDial(dialHoleIdx);
+    }
+  }
+});
+
+dialCanvas.addEventListener('mousemove', e => {
+  if (dialHoleIdx < 0) return;
+  // Highlight the hole being dragged — drag direction is just cosmetic for now
+  drawDial(dialHoleIdx);
+});
+
+dialCanvas.addEventListener('mouseup', e => {
+  if (dialHoleIdx < 0) return;
+  const snap = dialHoleIdx;
+  dialHoleIdx = -1;
+  if (dialOpen >= 0) {
+    modules[dialOpen].allocated = snap * 10;
+    updateBudgetBar();
+    scheduleRoute();
+    drawDial(-1);
+    // Brief close delay for feedback
+    setTimeout(closeDial, 320);
+  }
+});
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+
+function frame() {
+  requestAnimationFrame(frame);
+  drawRing();
+  if (dialOpen >= 0 && dialHoleIdx < 0) drawDial(-1);
+}
+
+requestAnimationFrame(frame);
+updateBudgetBar();
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+const STATUS = document.getElementById('status');
+let ws;
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify(obj));
+}
+
+function setStatus(cls, text) {
+  STATUS.className   = cls;
+  STATUS.textContent = text;
+}
+
+function applyPowerState(msg) {
+  capacity = msg.total_capacity || 100;
+  const incoming = msg.modules || [];
+  modules = incoming.map(m => ({
+    id:        m.id,
+    label:     m.label || m.id.replace(/_/g, '\n').toUpperCase(),
+    category:  m.category || 'support',
+    baseDraw:  m.base_draw || 10,
+    minDraw:   m.min_draw  || 0,
+    desc:      m.desc      || '',
+    allocated: (m.allocated || 0) * 100,
+    unlocked:  m.unlocked !== false,
+  }));
+  updateBudgetBar();
+}
+
+// ── Embedded pointer injection (Godot → WebKit2 → canvas) ────────────────────
+
+function injectPointer(msg) {
+  // Route to the canvas that owns the primary interaction surface.
+  // elementFromPoint finds the exact target; fall back to ring canvas.
+  const el = document.elementFromPoint(msg.x, msg.y) || ring;
+  el.dispatchEvent(new MouseEvent(msg.subtype, {
+    bubbles: true, cancelable: true, view: window,
+    clientX: msg.x, clientY: msg.y,
+    screenX: msg.x, screenY: msg.y,
+    button:  0,
+    buttons: (msg.subtype === 'mousedown' || msg.subtype === 'mousemove') ? 1 : 0,
+  }));
+  // For mousemove, also send a version with buttons=0 so hover detection works
+  // when the button is not held (arcDragging gates the drag path internally).
+  if (msg.subtype === 'mousemove') {
+    el.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true, cancelable: true, view: window,
+      clientX: msg.x, clientY: msg.y,
+      screenX: msg.x, screenY: msg.y,
+      button: 0, buttons: 0,
+    }));
+  }
+}
+
+function connect() {
+  setStatus('', 'CONNECTING…');
+  ws = new WebSocket('ws://localhost:9787');
+  ws.binaryType = 'arraybuffer';
+  ws.addEventListener('open',  () => setStatus('connected', 'CONNECTED'));
+  ws.addEventListener('close', () => { setStatus('disconnected', 'DISCONNECTED — retrying…'); setTimeout(connect, 2000); });
+  ws.addEventListener('error', () => {});
+  ws.addEventListener('message', e => {
+    const text = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
+    const msg  = JSON.parse(text);
+    if (msg.type === 'power_state') applyPowerState(msg);
+    else if (msg.type === 'pointer' && msg.page === 'power_router') injectPointer(msg);
+  });
+}
+
+connect();
+</script>
+</body>
+</html>

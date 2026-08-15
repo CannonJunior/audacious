@@ -13,9 +13,12 @@ enum State { GROUNDED, AIRBORNE, FLIGHT }
 
 const GRAVITY     := 9.8
 const TURN_SPEED  := 2.62   # radians/s ≈ 150°/s
-const ROLL_SPEED  := 2.09   # radians/s ≈ 120°/s
+const ROLL_SPEED         := 2.09   # radians/s ≈ 120°/s
+const ROLL_CORRECT_SPEED  := 0.52   # radians/s ≈  30°/s — gradual auto-level on force-land
+const LAND_DESCENT_SPEED  := 20.0   # m/s downward applied on force-land
 
 var current_state: State = State.GROUNDED
+var _correcting_roll: bool = false
 
 var _suit  # SuitBody, set in _ready
 var _pending_input: SuitInputState = SuitInputState.new()
@@ -40,7 +43,12 @@ func tick(delta: float) -> void:
 	if input.turn_delta != 0.0:
 		_suit.rotation.y += input.turn_delta * TURN_SPEED * delta
 	if input.roll_delta != 0.0:
+		_correcting_roll = false
 		_suit.rotation.z += input.roll_delta * ROLL_SPEED * delta
+	elif _correcting_roll:
+		_suit.rotation.z = move_toward(_suit.rotation.z, 0.0, _roll_correct_speed() * delta)
+		if is_zero_approx(_suit.rotation.z):
+			_correcting_roll = false
 
 	_process_transitions(input, delta)
 
@@ -74,11 +82,34 @@ func _process_transitions(input: SuitInputState, delta: float) -> void:
 		State.FLIGHT:
 			if on_floor:
 				_on_land()
-			elif not stats.flight_available:
-				# Suit no longer supports flight (preset changed mid-air)
+			elif input.land_pressed or not stats.flight_available:
+				if input.land_pressed:
+					_correcting_roll = true
+					_suit.velocity.y = -LAND_DESCENT_SPEED
 				_transition(State.AIRBORNE)
 			elif flight_state.is_exhausted() and not input.boost_held:
 				_transition(State.AIRBORNE)
+
+func _roll_correct_speed() -> float:
+	# Cast a ray straight down to find how far the ground is.
+	var space := (_suit as Node3D).get_world_3d().direct_space_state
+	var query := PhysicsRayQueryParameters3D.create(
+		(_suit as Node3D).global_position,
+		(_suit as Node3D).global_position + Vector3.DOWN * 500.0
+	)
+	query.exclude = [_suit.get_rid()]
+	var hit := space.intersect_ray(query)
+	var distance := 500.0
+	if hit:
+		distance = (_suit as Node3D).global_position.distance_to(hit.position)
+
+	# Use downward speed to estimate time remaining before touchdown.
+	var fall_speed := maxf(absf(_suit.velocity.y), 1.0)
+	var time_to_land := distance / fall_speed
+
+	# Speed needed to finish levelling exactly at landing, clamped to sane range.
+	return clampf(absf(_suit.rotation.z) / maxf(time_to_land, 0.05), ROLL_CORRECT_SPEED, ROLL_SPEED)
+
 
 func _transition(new_state: State) -> void:
 	current_state = new_state
@@ -87,5 +118,7 @@ func _transition(new_state: State) -> void:
 func _on_land() -> void:
 	var stats = _suit.get_stats()
 	_suit.velocity.y = 0.0
+	_suit.rotation.z = 0.0
+	_correcting_roll = false
 	_transition(State.GROUNDED)
 	EventBus.suit_landed.emit(_suit.global_position, stats.thermal_output)

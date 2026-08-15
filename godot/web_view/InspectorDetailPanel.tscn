@@ -1,11 +1,9 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3]
 
-[ext_resource type="Script" path="res://web_view/WebViewPanel.gd" id="1_script"]
-
-[node name="WebViewPanel" type="Control" script=ExtResource("1_script")]
-offset_left = 80.0
+[node name="InspectorDetailPanel" type="Control"]
+offset_left = 490.0
 offset_top = 60.0
-offset_right = 480.0
+offset_right = 890.0
 offset_bottom = 580.0
 visible = false
 
@@ -26,45 +24,33 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 theme_override_constants/separation = 0
 
-[node name="Header" type="ColorRect" parent="VBox"]
+[node name="IDHeader" type="ColorRect" parent="VBox"]
 custom_minimum_size = Vector2(0, 38)
 color = Color(0.055, 0.055, 0.082, 1.0)
 
-[node name="Title" type="Label" parent="VBox/Header"]
+[node name="IDTitle" type="Label" parent="VBox/IDHeader"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 12.0
-offset_right = -76.0
+offset_right = -38.0
 theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(1.0, 0.627, 0.0, 1.0)
-text = "▸ SCENE INSPECTOR"
+text = "▸ OBJECT DETAIL"
 vertical_alignment = 1
 mouse_filter = 2
 
-[node name="Status" type="Label" parent="VBox/Header"]
+[node name="IDLabel" type="Label" parent="VBox/IDHeader"]
 anchor_left = 0.5
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = -76.0
+offset_right = -38.0
 theme_override_font_sizes/font_size = 10
-theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
-text = "CONNECTING…"
+theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1.0)
 horizontal_alignment = 1
 vertical_alignment = 1
 mouse_filter = 2
 
-[node name="ToggleBtn" type="Button" parent="VBox/Header"]
-anchor_left = 1.0
-anchor_right = 1.0
-offset_left = -76.0
-offset_right = -38.0
-offset_bottom = 38.0
-flat = true
-text = "⊞"
-theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
-theme_override_colors/font_hover_color = Color(1.0, 0.627, 0.0, 1.0)
-
-[node name="CloseBtn" type="Button" parent="VBox/Header"]
+[node name="IDCloseBtn" type="Button" parent="VBox/IDHeader"]
 anchor_left = 1.0
 anchor_right = 1.0
 offset_left = -38.0
@@ -79,19 +65,7 @@ custom_minimum_size = Vector2(0, 1)
 color = Color(0.11, 0.11, 0.16, 1.0)
 mouse_filter = 2
 
-[node name="ItemList" type="ItemList" parent="VBox"]
-unique_name_in_owner = true
+[node name="IDPreview" type="TextureRect" parent="VBox"]
 size_flags_vertical = 3
-
-[node name="InlinePreviewSep" type="ColorRect" parent="VBox"]
-custom_minimum_size = Vector2(0, 1)
-color = Color(0.11, 0.11, 0.16, 1.0)
-mouse_filter = 2
-visible = false
-
-[node name="InlinePreview" type="TextureRect" parent="VBox"]
-custom_minimum_size = Vector2(0, 220)
-size_flags_vertical = 0
 expand_mode = 1
 stretch_mode = 5
-visible = false

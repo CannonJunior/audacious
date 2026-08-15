@@ -15,11 +15,13 @@ signal connection_changed(is_connected: bool)
 const WS_PORT   := 9787
 const HTTP_PORT := 8787
 
-var _items: Array      = []
-var _tcp:   TCPServer  = TCPServer.new()
+var _items:      Array      = []
+var _item_nodes: Array      = []   # parallel to _items — Node or null per entry
+var _tcp:        TCPServer  = TCPServer.new()
 var _peers: Dictionary = {}   # id(int) -> WebSocketPeer
 var _next_id: int      = 0
-var _open_count: int   = 0
+var _open_count: int      = 0
+var _selected_index: int  = -1
 
 # ── Panel UI (direct node manipulation — bypasses script-attachment issues) ───
 
@@ -28,22 +30,44 @@ const _C_RED  := Color(1.0,   0.251, 0.251, 1.0)
 const _C_DIM  := Color(0.333, 0.333, 0.333, 1.0)
 const _C_AMB  := Color(1.0,   0.627, 0.0,   1.0)
 
-var _ui_panel:          Control  = null
-var _ui_status:         Label    = null
-var _ui_list:           ItemList = null
-var _panel_dragging:    bool     = false
-var _panel_drag_offset: Vector2  = Vector2.ZERO
-var _ever_connected:    bool     = false
+# Maximum thermal_output at which thermal_norm saturates to 1.0.
+# Equal to the highest chassis thermal_coefficient in SuitPartResource.
+const _THERMAL_MAX_OUTPUT := 3.0
+
+var _ui_panel:          Control     = null
+var _ui_status:         Label       = null
+var _ui_list:           ItemList    = null
+var _ui_toggle:         Button      = null
+var _inline_preview:    TextureRect = null
+var _inline_sep:        Control     = null
+var _preview_integrated: bool       = false
+var _panel_dragging:    bool        = false
+var _panel_drag_offset: Vector2     = Vector2.ZERO
+var _ever_connected:    bool        = false
+
+var _dp_panel:       Control     = null
+var _dp_label:       Label       = null
+var _dp_preview:     TextureRect = null
+var _dp_dragging:    bool        = false
+var _dp_drag_offset: Vector2     = Vector2.ZERO
 
 # ── Flight instruments ────────────────────────────────────────────────────────
 
-var _suit_body:     Node  = null
-var _move_ctrl:     Node  = null
-var _flight_state:  Node  = null
-var _suit_visuals:  Node  = null   # SuitModelVisuals — provides lean/bank angles
-var _cached_stats:  Dictionary = {}
-var _flight_timer:  float = 0.0
-const _FLIGHT_HZ   := 20.0
+var _suit_body:            Node  = null
+var _move_ctrl:            Node  = null
+var _flight_state:         Node  = null
+var _suit_visuals:         Node  = null   # SuitModelVisuals — provides lean/bank angles
+var _cached_stats:         Dictionary = {}
+var _flight_timer:         float = 0.0
+var _all_suit_nodes_found: bool  = false
+var _flight_panels_bound:  bool  = false
+const _FLIGHT_HZ           := 20.0
+
+# ── Node preview SubViewport ──────────────────────────────────────────────────
+
+var _detail_viewport: SubViewport = null
+var _detail_camera:   Camera3D    = null
+var _detail_root:     Node3D      = null
 
 var _fp_panel:    Control = null
 var _fp_mode:     Label   = null
@@ -57,6 +81,30 @@ var _fp_therm:    Label   = null
 var _fp_dragging:    bool    = false
 var _fp_drag_offset: Vector2 = Vector2.ZERO
 
+# ── Power / gas router state ──────────────────────────────────────────────────
+
+var _power_modules:  Array      = []
+var _power_capacity: float      = 100.0
+var _power_routes:   Dictionary = {}
+
+var _gas_modules:  Array      = []
+var _gas_pressure: float      = 1.0
+var _gas_routes:   Dictionary = {}
+
+# ── Power router panel ───────────────────────────────────────────────────────
+
+var _pr_panel:       Control = null
+var _pr_dial:        Node    = null
+var _pr_dragging:    bool    = false
+var _pr_drag_offset: Vector2 = Vector2.ZERO
+
+# ── Gas router panel ──────────────────────────────────────────────────────────
+
+var _gr_panel:       Control = null
+var _gr_dial:        Node    = null
+var _gr_dragging:    bool    = false
+var _gr_drag_offset: Vector2 = Vector2.ZERO
+
 # ── Attitude gyro panel ───────────────────────────────────────────────────────
 
 var _gp_panel:    Control = null
@@ -67,9 +115,10 @@ var _gp_drag_offset: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
+	OS.execute("pkill", ["-f", "webview_server.py"])
 	OS.execute("fuser", ["-k", "%d/tcp" % WS_PORT])
 	var script := ProjectSettings.globalize_path("res://web_view/webview_server.py")
-	OS.create_process("python3", [script])
+	OS.create_process("python3", [script, "600", "800", str(HTTP_PORT)])
 	var err := _tcp.listen(WS_PORT)
 	if err != OK:
 		push_error("WebViewBridge: TCPServer failed on port %d (%s)" % [WS_PORT, error_string(err)])
@@ -81,6 +130,7 @@ func _exit_tree() -> void:
 	for peer in _peers.values():
 		(peer as WebSocketPeer).close()
 	_tcp.stop()
+	OS.execute("pkill", ["-f", "webview_server.py"])
 
 
 func _process(delta: float) -> void:
@@ -95,8 +145,9 @@ func _process(delta: float) -> void:
 		_peers[_next_id] = ws
 		print("WebViewBridge: TCP connection accepted, peer id=%d" % _next_id)
 
-	# Poll every peer; collect closed ones for removal.
+	# Poll every peer; collect closed ones for removal; count open ones in one pass.
 	var remove: Array = []
+	var open_count := 0
 	for id in _peers:
 		var peer := _peers[id] as WebSocketPeer
 		peer.poll()
@@ -104,16 +155,11 @@ func _process(delta: float) -> void:
 		if state == WebSocketPeer.STATE_OPEN:
 			while peer.get_available_packet_count() > 0:
 				_handle_message(peer.get_packet().get_string_from_utf8())
+			open_count += 1
 		elif state == WebSocketPeer.STATE_CLOSED:
 			remove.append(id)
 	for id in remove:
 		_peers.erase(id)
-
-	# Count peers that are currently open and emit if the count changed.
-	var open_count := 0
-	for id in _peers:
-		if (_peers[id] as WebSocketPeer).get_ready_state() == WebSocketPeer.STATE_OPEN:
-			open_count += 1
 
 	if open_count != _open_count:
 		var prev  := _open_count
@@ -122,6 +168,12 @@ func _process(delta: float) -> void:
 		connection_changed.emit(open_count > 0)
 		if open_count > prev:
 			push_items.call_deferred()
+			if _selected_index >= 0 and _selected_index < _items.size():
+				_broadcast.call_deferred({"type": "item_selected", "index": _selected_index, "item": _items[_selected_index]})
+			if _power_modules.size() > 0:
+				_broadcast.call_deferred({"type": "power_state", "total_capacity": _power_capacity, "modules": _power_modules})
+			if _gas_modules.size() > 0:
+				_broadcast.call_deferred({"type": "gas_state", "tank_pressure": _gas_pressure, "modules": _gas_modules})
 		_bind_panel()
 		_sync_panel_status()
 
@@ -137,32 +189,37 @@ func _input(event: InputEvent) -> void:
 		_panel_dragging = false
 		_fp_dragging    = false
 		_gp_dragging    = false
+		_dp_dragging    = false
+		_pr_dragging    = false
+		_gr_dragging    = false
 	elif event is InputEventMouseMotion:
-		if _panel_dragging and _ui_panel != null and _ui_panel.visible:
-			var np := _ui_panel.get_global_mouse_position() - _panel_drag_offset
-			var vp := _ui_panel.get_viewport_rect().size
-			_ui_panel.position = Vector2(clampf(np.x, 0.0, vp.x - _ui_panel.size.x),
-			                             clampf(np.y, 0.0, vp.y - _ui_panel.size.y))
-		if _fp_dragging and _fp_panel != null and _fp_panel.visible:
-			var np := _fp_panel.get_global_mouse_position() - _fp_drag_offset
-			var vp := _fp_panel.get_viewport_rect().size
-			_fp_panel.position = Vector2(clampf(np.x, 0.0, vp.x - _fp_panel.size.x),
-			                             clampf(np.y, 0.0, vp.y - _fp_panel.size.y))
-		if _gp_dragging and _gp_panel != null and _gp_panel.visible:
-			var np := _gp_panel.get_global_mouse_position() - _gp_drag_offset
-			var vp := _gp_panel.get_viewport_rect().size
-			_gp_panel.position = Vector2(clampf(np.x, 0.0, vp.x - _gp_panel.size.x),
-			                             clampf(np.y, 0.0, vp.y - _gp_panel.size.y))
+		_do_drag(_ui_panel, _panel_dragging, _panel_drag_offset)
+		_do_drag(_fp_panel, _fp_dragging,    _fp_drag_offset)
+		_do_drag(_gp_panel, _gp_dragging,    _gp_drag_offset)
+		_do_drag(_dp_panel, _dp_dragging,    _dp_drag_offset)
+		_do_drag(_pr_panel, _pr_dragging,    _pr_drag_offset)
+		_do_drag(_gr_panel, _gr_dragging,    _gr_drag_offset)
+
+
+func _do_drag(panel: Control, dragging: bool, offset: Vector2) -> void:
+	if not dragging or panel == null or not panel.visible:
+		return
+	var np := panel.get_global_mouse_position() - offset
+	var vp := panel.get_viewport_rect().size
+	panel.position = Vector2(clampf(np.x, 0.0, vp.x - panel.size.x),
+	                         clampf(np.y, 0.0, vp.y - panel.size.y))
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-func register_item(label: String, data: Dictionary = {}) -> void:
+func register_item(label: String, data: Dictionary = {}, node: Node = null) -> void:
 	_items.append({"label": label, "data": data})
+	_item_nodes.append(node)
 
 
 func clear_items() -> void:
 	_items.clear()
+	_item_nodes.clear()
 
 
 func get_items() -> Array:
@@ -188,6 +245,32 @@ func send_click(x: int, y: int) -> void:
 	_broadcast({"type": "click", "x": x, "y": y})
 
 
+func send_pointer(page: String, subtype: String, x: int, y: int) -> void:
+	_broadcast({"type": "pointer", "page": page, "subtype": subtype, "x": x, "y": y})
+
+
+func push_power_state(modules: Array, capacity: float) -> void:
+	_power_modules  = modules.duplicate(true)
+	_power_capacity = capacity
+	_broadcast({"type": "power_state", "total_capacity": capacity, "modules": modules})
+	_sync_pr_nodes(_power_modules, _power_capacity)
+
+
+func push_gas_state(modules: Array, tank_pressure: float) -> void:
+	_gas_modules  = modules.duplicate(true)
+	_gas_pressure = tank_pressure
+	_broadcast({"type": "gas_state", "tank_pressure": tank_pressure, "modules": modules})
+	_sync_gr_nodes(_gas_modules, _gas_pressure)
+
+
+func get_power_routes() -> Dictionary:
+	return _power_routes.duplicate()
+
+
+func get_gas_routes() -> Dictionary:
+	return _gas_routes.duplicate()
+
+
 # ── Internal ──────────────────────────────────────────────────────────────────
 
 func _broadcast(obj: Dictionary) -> void:
@@ -198,6 +281,104 @@ func _broadcast(obj: Dictionary) -> void:
 			peer.send(buf)
 
 
+func _select_item(idx: int) -> void:
+	_selected_index = idx
+	item_selected.emit(idx, _items[idx])
+	_broadcast({"type": "item_selected", "index": idx, "item": _items[idx]})
+	var node: Node = _item_nodes[idx] if idx < _item_nodes.size() else null
+	if node != null and is_instance_valid(node):
+		_capture_node_preview(node, _items[idx].get("label", ""))
+
+
+func _setup_detail_viewport() -> void:
+	if _detail_viewport != null:
+		return
+	_detail_viewport = SubViewport.new()
+	_detail_viewport.name = "DetailViewport"
+	_detail_viewport.size = Vector2i(640, 480)
+	_detail_viewport.own_world_3d = true
+	_detail_viewport.transparent_bg = true
+	_detail_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_detail_viewport)
+
+	var env_node := WorldEnvironment.new()
+	var env      := Environment.new()
+	env.background_mode    = Environment.BG_COLOR
+	env.background_color   = Color(0.0, 0.0, 0.0, 0.0)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color  = Color(0.55, 0.65, 0.75)
+	env.ambient_light_energy = 0.9
+	env_node.environment = env
+	_detail_viewport.add_child(env_node)
+
+	var light := DirectionalLight3D.new()
+	light.rotation_degrees = Vector3(-45.0, 45.0, 0.0)
+	light.light_energy = 1.2
+	_detail_viewport.add_child(light)
+
+	_detail_root = Node3D.new()
+	_detail_viewport.add_child(_detail_root)
+
+	_detail_camera = Camera3D.new()
+	_detail_viewport.add_child(_detail_camera)
+
+
+func _capture_node_preview(node: Node, label: String) -> void:
+	if not (node is Node3D):
+		return
+	_setup_detail_viewport()
+
+	# Clear previous isolated meshes.
+	for child in _detail_root.get_children():
+		_detail_root.remove_child(child)
+		child.free()
+
+	# Duplicate only MeshInstance3D descendants, placed relative to node origin.
+	var node_inv := (node as Node3D).global_transform.inverse()
+	for mi in node.find_children("*", "MeshInstance3D", true, false):
+		var mi3d := mi as MeshInstance3D
+		if mi3d.mesh == null:
+			continue
+		var dup := mi3d.duplicate() as MeshInstance3D
+		dup.transform = node_inv * mi3d.global_transform
+		_detail_root.add_child(dup)
+
+	# Compute AABB in isolated world space.
+	var aabb  := AABB()
+	var first := true
+	for child in _detail_root.get_children():
+		if not (child is MeshInstance3D):
+			continue
+		var mi := child as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var local_aabb: AABB = mi.transform * mi.get_aabb()
+		aabb = local_aabb if first else aabb.merge(local_aabb)
+		first = false
+
+	if first:
+		return
+
+	var center := aabb.get_center()
+	var radius := maxf(aabb.size.length() * 0.5, 0.5)
+	var offset := Vector3(1.0, 0.6, 1.0).normalized() * radius * 2.5
+	_detail_camera.position = center + offset
+	_detail_camera.look_at(center, Vector3.UP)
+
+	_detail_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+	await RenderingServer.frame_post_draw
+
+	_bind_dp()
+	_sync_dp(label)
+
+	var img := _detail_viewport.get_texture().get_image()
+	if img == null or img.is_empty():
+		return
+	var path := ProjectSettings.globalize_path("res://web_view/preview.png")
+	img.save_png(path)
+	_broadcast({"type": "preview_updated", "ts": Time.get_ticks_msec()})
+
+
 func _handle_message(msg: String) -> void:
 	var parsed = JSON.parse_string(msg)
 	if not parsed is Dictionary:
@@ -206,7 +387,15 @@ func _handle_message(msg: String) -> void:
 		"select":
 			var idx := int(parsed.get("index", -1))
 			if idx >= 0 and idx < _items.size():
-				item_selected.emit(idx, _items[idx])
+				_select_item(idx)
+		"power_route":
+			var routes: Dictionary = parsed.get("routes", {})
+			_power_routes = routes
+			EventBus.power_routes_changed.emit(routes)
+		"gas_route":
+			var routes: Dictionary = parsed.get("routes", {})
+			_gas_routes = routes
+			EventBus.gas_routes_changed.emit(routes)
 
 
 # ── Scene inspector panel ─────────────────────────────────────────────────────
@@ -225,12 +414,20 @@ func _bind_panel() -> void:
 	if close_btn:
 		close_btn.pressed.connect(_on_panel_close)
 
+	_ui_toggle    = _ui_panel.find_child("ToggleBtn",        true, false) as Button
+	_inline_sep   = _ui_panel.find_child("InlinePreviewSep", true, false) as Control
+	_inline_preview = _ui_panel.find_child("InlinePreview",  true, false) as TextureRect
+	if _ui_toggle:
+		_ui_toggle.pressed.connect(_on_preview_toggle)
+
 	var header := _ui_panel.find_child("Header", true, false) as ColorRect
 	if header:
 		header.gui_input.connect(_on_panel_header_input)
 
 	if _ui_list:
 		_ui_list.item_selected.connect(_on_panel_item_selected)
+
+	_ui_panel.visibility_changed.connect(_on_inspector_visibility_changed)
 
 	_sync_panel_status()
 	_sync_panel_items()
@@ -273,7 +470,19 @@ func _sync_panel_items() -> void:
 func _on_panel_close() -> void:
 	if _ui_panel:
 		_ui_panel.visible = false
+	if _dp_panel:
+		_dp_panel.visible = false
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _on_inspector_visibility_changed() -> void:
+	if _ui_panel and not _ui_panel.visible:
+		if _dp_panel:
+			_dp_panel.visible = false
+		if _inline_preview:
+			_inline_preview.visible = false
+		if _inline_sep:
+			_inline_sep.visible = false
 
 
 func _on_panel_header_input(event: InputEvent) -> void:
@@ -285,7 +494,7 @@ func _on_panel_header_input(event: InputEvent) -> void:
 
 func _on_panel_item_selected(index: int) -> void:
 	if index >= 0 and index < _items.size():
-		item_selected.emit(index, _items[index])
+		_select_item(index)
 
 
 # ── Flight instruments ────────────────────────────────────────────────────────
@@ -301,16 +510,21 @@ func _on_suit_stats_updated(new_stats) -> void:
 
 
 func _find_suit_nodes() -> void:
-	if _suit_body != null:
-		return
-	_suit_body    = get_tree().get_root().find_child("SuitBody",           true, false)
-	_move_ctrl    = get_tree().get_root().find_child("MovementController", true, false)
-	_flight_state = get_tree().get_root().find_child("FlightState",        true, false)
-	_suit_visuals = get_tree().get_root().find_child("SuitModel",          true, false)
+	if _suit_body == null:
+		_suit_body    = get_tree().get_root().find_child("SuitBody",           true, false)
+	if _move_ctrl == null:
+		_move_ctrl    = get_tree().get_root().find_child("MovementController", true, false)
+	if _flight_state == null:
+		_flight_state = get_tree().get_root().find_child("FlightState",        true, false)
+	if _suit_visuals == null:
+		_suit_visuals = get_tree().get_root().find_child("SuitModel",          true, false)
 
 
 func _poll_flight() -> void:
-	_find_suit_nodes()
+	if not _all_suit_nodes_found:
+		_find_suit_nodes()
+		_all_suit_nodes_found = (_suit_body != null and _move_ctrl != null
+				and _flight_state != null and _suit_visuals != null)
 	if _suit_body == null:
 		return
 
@@ -339,13 +553,11 @@ func _poll_flight() -> void:
 	var flight_avail: bool  = _cached_stats.get("flight_available", true)
 
 	var ceiling_str := "∞" if is_inf(float(ceiling)) else "%.0f m" % float(ceiling)
-	var thermal_norm: float = clampf(thermal_raw / 3.0, 0.0, 1.0)
+	var thermal_norm: float = clampf(thermal_raw / _THERMAL_MAX_OUTPUT, 0.0, 1.0)
 
-	# Attitude gyro — pitch from flight path vector, bank from visual lean
-	var pitch_deg: float = rad_to_deg(atan2(vel.y, maxf(hspeed, 0.01)))
-	var bank_deg:  float = 0.0
-	if _suit_visuals != null:
-		bank_deg = float(_suit_visuals.get("_lean_side"))
+	# Attitude gyro — body orientation only; flight path angle is not attitude
+	var pitch_deg: float = rad_to_deg((_suit_body as Node3D).rotation.x)
+	var bank_deg:  float = rad_to_deg((_suit_body as Node3D).rotation.z)
 
 	var flight_payload := {
 		"type":         "flight_data",
@@ -373,10 +585,15 @@ func _poll_flight() -> void:
 	_broadcast(flight_payload)
 	_broadcast(gyro_payload)
 
-	_bind_fp()
-	_sync_fp_nodes(flight_payload)
+	if not _flight_panels_bound:
+		_bind_fp()
+		_bind_gp()
+		_bind_pr()
+		_bind_gr()
+		_flight_panels_bound = (_fp_panel != null and _gp_panel != null
+				and _pr_panel != null and _gr_panel != null)
 
-	_bind_gp()
+	_sync_fp_nodes(flight_payload)
 	_sync_gp_nodes(pitch_deg, bank_deg)
 
 
@@ -530,3 +747,181 @@ func _on_gp_header_input(event: InputEvent) -> void:
 		_gp_dragging = event.pressed
 		if event.pressed and _gp_panel:
 			_gp_drag_offset = _gp_panel.get_global_mouse_position() - _gp_panel.global_position
+
+
+# ── Power router panel ───────────────────────────────────────────────────────
+
+func _bind_pr() -> void:
+	if _pr_panel != null:
+		return
+	_pr_panel = get_tree().get_root().find_child("PowerRouterPanel", true, false) as Control
+	if _pr_panel == null:
+		return
+
+	_pr_dial = _pr_panel.find_child("PRDial", true, false)
+
+	var close_btn := _pr_panel.find_child("CloseBtn", true, false) as Button
+	if close_btn:
+		close_btn.pressed.connect(_on_pr_close)
+
+	var header := _pr_panel.find_child("Header", true, false) as ColorRect
+	if header:
+		header.gui_input.connect(_on_pr_header_input)
+
+	if _pr_dial and not _pr_dial.is_connected("routes_changed", _on_pr_routes_changed):
+		_pr_dial.connect("routes_changed", _on_pr_routes_changed)
+
+	if _power_modules.size() > 0:
+		_sync_pr_nodes(_power_modules, _power_capacity)
+
+
+func _sync_pr_nodes(modules: Array, capacity: float) -> void:
+	if _pr_panel == null:
+		return
+	if _pr_dial and _pr_dial.has_method("update_state"):
+		_pr_dial.call("update_state", modules, capacity)
+
+
+func _on_pr_routes_changed(routes: Dictionary) -> void:
+	_power_routes = routes
+	EventBus.power_routes_changed.emit(routes)
+	_broadcast({"type": "power_route", "routes": routes})
+
+
+func _on_pr_close() -> void:
+	if _pr_panel:
+		_pr_panel.visible = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _on_pr_header_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_pr_dragging = event.pressed
+		if event.pressed and _pr_panel:
+			_pr_drag_offset = _pr_panel.get_global_mouse_position() - _pr_panel.global_position
+
+
+# ── Gas router panel ──────────────────────────────────────────────────────────
+
+func _bind_gr() -> void:
+	if _gr_panel != null:
+		return
+	_gr_panel = get_tree().get_root().find_child("GasRouterPanel", true, false) as Control
+	if _gr_panel == null:
+		return
+
+	_gr_dial = _gr_panel.find_child("GRDial", true, false)
+
+	var close_btn := _gr_panel.find_child("CloseBtn", true, false) as Button
+	if close_btn:
+		close_btn.pressed.connect(_on_gr_close)
+
+	var header := _gr_panel.find_child("Header", true, false) as ColorRect
+	if header:
+		header.gui_input.connect(_on_gr_header_input)
+
+	if _gr_dial and not _gr_dial.is_connected("routes_changed", _on_gr_routes_changed):
+		_gr_dial.connect("routes_changed", _on_gr_routes_changed)
+
+	if _gas_modules.size() > 0:
+		_sync_gr_nodes(_gas_modules, _gas_pressure)
+
+
+func _sync_gr_nodes(modules: Array, tank_pressure: float) -> void:
+	if _gr_panel == null:
+		return
+	if _gr_dial and _gr_dial.has_method("update_state"):
+		_gr_dial.call("update_state", modules, tank_pressure)
+
+
+func _on_gr_routes_changed(routes: Dictionary) -> void:
+	_gas_routes = routes
+	EventBus.gas_routes_changed.emit(routes)
+	_broadcast({"type": "gas_route", "routes": routes})
+
+
+func _on_gr_close() -> void:
+	if _gr_panel:
+		_gr_panel.visible = false
+	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+
+func _on_gr_header_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_gr_dragging = event.pressed
+		if event.pressed and _gr_panel:
+			_gr_drag_offset = _gr_panel.get_global_mouse_position() - _gr_panel.global_position
+
+
+# ── Inspector detail panel ────────────────────────────────────────────────────
+
+func _bind_dp() -> void:
+	if _dp_panel != null:
+		return
+	_dp_panel = get_tree().get_root().find_child("InspectorDetailPanel", true, false) as Control
+	if _dp_panel == null:
+		return
+
+	_dp_label   = _dp_panel.find_child("IDLabel",   true, false) as Label
+	_dp_preview = _dp_panel.find_child("IDPreview", true, false) as TextureRect
+
+	var close_btn := _dp_panel.find_child("IDCloseBtn", true, false) as Button
+	if close_btn:
+		close_btn.pressed.connect(_on_dp_close)
+
+	var header := _dp_panel.find_child("IDHeader", true, false) as ColorRect
+	if header:
+		header.gui_input.connect(_on_dp_header_input)
+
+
+func _sync_dp(label: String) -> void:
+	if _preview_integrated:
+		if _inline_preview and _detail_viewport:
+			_inline_preview.texture = _detail_viewport.get_texture()
+		if _inline_preview:
+			_inline_preview.visible = true
+		if _inline_sep:
+			_inline_sep.visible = true
+	else:
+		if _dp_panel == null:
+			return
+		if _dp_label:
+			_dp_label.text = label
+		if _dp_preview and _detail_viewport:
+			_dp_preview.texture = _detail_viewport.get_texture()
+		_dp_panel.visible = true
+
+
+func _on_preview_toggle() -> void:
+	_preview_integrated = not _preview_integrated
+	if _ui_toggle:
+		_ui_toggle.text = "⊟" if _preview_integrated else "⊞"
+	if _preview_integrated:
+		if _dp_panel:
+			_dp_panel.visible = false
+		if _selected_index >= 0 and _detail_viewport:
+			if _inline_preview:
+				_inline_preview.texture = _detail_viewport.get_texture()
+				_inline_preview.visible = true
+			if _inline_sep:
+				_inline_sep.visible = true
+	else:
+		if _inline_preview:
+			_inline_preview.visible = false
+		if _inline_sep:
+			_inline_sep.visible = false
+		if _selected_index >= 0 and _detail_viewport:
+			_bind_dp()
+			_sync_dp(_items[_selected_index].get("label", ""))
+
+
+func _on_dp_close() -> void:
+	if _dp_panel:
+		_dp_panel.visible = false
+
+
+func _on_dp_header_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		_dp_dragging = event.pressed
+		if event.pressed and _dp_panel:
+			_dp_drag_offset = _dp_panel.get_global_mouse_position() - _dp_panel.global_position

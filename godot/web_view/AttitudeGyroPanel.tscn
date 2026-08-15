@@ -5,8 +5,9 @@
 [node name="AttitudeGyroPanel" type="Control"]
 offset_left = 840.0
 offset_top = 60.0
-offset_right = 1040.0
-offset_bottom = 260.0
+offset_right = 1080.0
+offset_bottom = 279.0
+clip_contents = true
 visible = false
 
 [node name="BG" type="ColorRect" parent="."]
@@ -27,14 +28,14 @@ anchor_bottom = 1.0
 theme_override_constants/separation = 0
 
 [node name="AGHeader" type="ColorRect" parent="VBox"]
-custom_minimum_size = Vector2(0, 38)
+custom_minimum_size = Vector2(0, 32)
 color = Color(0.051, 0.122, 0.200, 0.7)
 
 [node name="AGTitle" type="Label" parent="VBox/AGHeader"]
 anchor_bottom = 1.0
-offset_left = 8.0
-offset_right = 120.0
-theme_override_font_sizes/font_size = 13
+offset_left = 6.0
+offset_right = 150.0
+theme_override_font_sizes/font_size = 14
 theme_override_colors/font_color = Color(0.267, 0.467, 0.667, 1.0)
 text = "ATTITUDE GYR"
 vertical_alignment = 1
@@ -43,7 +44,7 @@ mouse_filter = 2
 [node name="AGReadout" type="Label" parent="VBox/AGHeader"]
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = -38.0
+offset_right = -32.0
 theme_override_font_sizes/font_size = 7
 theme_override_colors/font_color = Color(0.200, 0.333, 0.400, 1.0)
 text = "P:+0°  B:+0°"
@@ -54,8 +55,8 @@ mouse_filter = 2
 [node name="AGCloseBtn" type="Button" parent="VBox/AGHeader"]
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -38.0
-offset_bottom = 38.0
+offset_left = -32.0
+offset_bottom = 32.0
 flat = true
 text = "✕"
 theme_override_colors/font_color = Color(0.267, 0.467, 0.667, 0.6)

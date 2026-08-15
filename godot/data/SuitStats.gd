@@ -5,10 +5,10 @@ extends RefCounted
 
 # ── Design constants — tune these to feel right in Phase 0 ───────────────────
 
-const MAX_BOOST_SPEED: float   = 60.0   # m/s at load_ratio 0.0
-const MIN_BOOST_SPEED: float   = 15.0   # m/s at load_ratio 1.0
-const MAX_GROUND_SPEED: float  = 20.0   # m/s sprint at load_ratio 0.0
-const MIN_GROUND_SPEED: float  = 8.0    # m/s sprint at load_ratio 1.0
+const MAX_BOOST_SPEED: float   = 200.0  # m/s at load_ratio 0.0
+const MIN_BOOST_SPEED: float   =  60.0  # m/s at load_ratio 1.0
+const MAX_GROUND_SPEED: float  = 200.0  # m/s at load_ratio 0.0
+const MIN_GROUND_SPEED: float  =  60.0  # m/s at load_ratio 1.0
 const MAX_JUMP_HEIGHT: float   = 25.0   # meters at load_ratio 0.0
 const MIN_JUMP_HEIGHT: float   = 5.0    # meters at load_ratio 1.0
 const MAX_HOVER_DURATION: float = INF   # seconds hover at load_ratio 0.0

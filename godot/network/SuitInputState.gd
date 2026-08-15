@@ -10,6 +10,8 @@ var turn_delta: float = 0.0                   # A/D: negative = left, positive =
 var roll_delta: float = 0.0                   # Q+A: positive = roll left, E+D: negative = roll right
 var camera_look: Vector2 = Vector2.ZERO       # reserved for network/AI; not used by local input
 
+var land_pressed: bool = false                # X: exit flight, fall back to airborne
+
 var boost_pressed: bool = false               # tap: jump / double-tap: boost burst
 var boost_held: bool = false                  # hold: sustained thrust upward
 var boost_down_held: bool = false             # descend / brake altitude

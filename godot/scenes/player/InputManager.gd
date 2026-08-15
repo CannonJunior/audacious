@@ -46,6 +46,8 @@ func _physics_process(_delta: float) -> void:
 		)
 		state.turn_delta = -Input.get_axis("turn_left", "turn_right")
 
+	state.land_pressed = Input.is_action_just_pressed("force_land")
+
 	# Boost (Space): pressed = jump/burst, held = sustain flight
 	state.boost_pressed  = Input.is_action_just_pressed("boost")
 	state.boost_held     = Input.is_action_pressed("boost")

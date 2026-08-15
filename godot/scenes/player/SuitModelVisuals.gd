@@ -4,7 +4,7 @@ const SUIT_SCENE_PATH := "res://assets/suit/iron_man.glb"
 
 # ── Tuning ────────────────────────────────────────────────────────────────────
 const SMOOTH            := 7.0   # lerp speed for root lean/bank values
-const MAX_FWD_LEAN      := 12.0  # degrees, forward/back pitch at full sprint
+const MAX_FWD_LEAN      := 90.0  # degrees, forward/back pitch at full boost speed
 const MAX_SIDE_LEAN     :=  8.0  # degrees, lateral tilt on strafe
 const MAX_BANK          := 10.0  # degrees, roll added on yaw input
 const BANK_FACTOR       := 25.0  # bank degrees per rad/s of yaw
@@ -95,9 +95,11 @@ func _animate(delta: float) -> void:
 	var move_state := _movement.current_state
 
 	# ── Forward / back lean (X rotation) ──────────────────────────────────
-	# local_vel.z < 0 when moving forward → negative X = nose down = lean forward
+	# Normalize against boost_speed so pitch scales continuously up to full flight speed.
+	# local_vel.z < 0 when moving forward → negative target = nose down = lean forward.
+	var fwd_ref := maxf(stats.boost_speed, 1.0)
 	var target_fwd := clampf(
-		local_vel.z / ref_speed * MAX_FWD_LEAN, -MAX_FWD_LEAN, MAX_FWD_LEAN)
+		local_vel.z / fwd_ref * MAX_FWD_LEAN, -MAX_FWD_LEAN, MAX_FWD_LEAN)
 	_lean_fwd = lerpf(_lean_fwd, target_fwd, SMOOTH * delta)
 
 	# ── Strafe lean (Z rotation) ───────────────────────────────────────────

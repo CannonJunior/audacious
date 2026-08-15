@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Inspector Detail</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #07070e;
+      color: #d8d8e0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 13px;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #1c1c28;
+      padding-bottom: 12px;
+    }
+
+    h1 {
+      color: #ffa000;
+      font-size: 13px;
+      letter-spacing: 3px;
+      font-weight: normal;
+    }
+
+    #status {
+      font-size: 11px;
+      color: #555;
+    }
+    #status.connected    { color: #00ffcc; }
+    #status.disconnected { color: #ff4040; }
+
+    #index {
+      margin-left: auto;
+      font-size: 11px;
+      color: #333;
+      letter-spacing: 1px;
+    }
+
+    #none {
+      color: #333;
+      font-size: 12px;
+      padding: 20px 0;
+      letter-spacing: 1px;
+    }
+
+    #detail { display: none; }
+
+    #item-label {
+      color: #00ffcc;
+      font-size: 13px;
+      letter-spacing: 2px;
+      margin-bottom: 14px;
+    }
+
+    #preview-wrap {
+      position: relative;
+      background: #0e0e1a;
+      border: 1px solid #1c1c28;
+    }
+
+    #preview {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    #stale {
+      display: none;
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #ffa000;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>▸ OBJECT DETAIL</h1>
+  <span id="status">CONNECTING…</span>
+  <span id="index"></span>
+</header>
+
+<p id="none">Waiting for selection…</p>
+
+<div id="detail">
+  <div id="item-label"></div>
+  <div id="preview-wrap">
+    <img id="preview" alt="">
+    <span id="stale">UPDATING…</span>
+  </div>
+</div>
+
+<script>
+  const STATUS  = document.getElementById('status');
+  const INDEX   = document.getElementById('index');
+  const NONE    = document.getElementById('none');
+  const DETAIL  = document.getElementById('detail');
+  const LABEL   = document.getElementById('item-label');
+  const PREVIEW = document.getElementById('preview');
+  const STALE   = document.getElementById('stale');
+
+  function setStatus(cls, text) {
+    STATUS.className = cls;
+    STATUS.textContent = text;
+  }
+
+  function onItemSelected(index, item) {
+    INDEX.textContent = '#' + index;
+    LABEL.textContent = item.label;
+    STALE.style.display = 'block';
+    NONE.style.display = 'none';
+    DETAIL.style.display = 'block';
+  }
+
+  function onPreviewUpdated(ts) {
+    PREVIEW.src = 'preview.png?v=' + ts;
+    PREVIEW.onload = () => { STALE.style.display = 'none'; };
+  }
+
+  let ws;
+
+  function connect() {
+    setStatus('', 'CONNECTING…');
+    ws = new WebSocket('ws://localhost:9787');
+    ws.binaryType = 'arraybuffer';
+
+    ws.addEventListener('open', () => setStatus('connected', 'CONNECTED'));
+
+    ws.addEventListener('close', () => {
+      setStatus('disconnected', 'DISCONNECTED — retrying in 2s…');
+      setTimeout(connect, 2000);
+    });
+
+    ws.addEventListener('error', () => {});
+
+    ws.addEventListener('message', e => {
+      const text = typeof e.data === 'string' ? e.data
+                 : new TextDecoder().decode(e.data);
+      const msg = JSON.parse(text);
+      if (msg.type === 'item_selected') {
+        onItemSelected(msg.index, msg.item);
+      } else if (msg.type === 'preview_updated') {
+        onPreviewUpdated(msg.ts);
+      }
+    });
+  }
+
+  connect();
+</script>
+</body>
+</html>

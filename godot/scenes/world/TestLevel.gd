@@ -49,7 +49,7 @@ func _register_scene_items() -> void:
 			WebViewBridge.register_item(child.name, {
 				"type": child.get_class(),
 				"pos":  "%d, %d, %d" % [roundi(p.x), roundi(p.y), roundi(p.z)]
-			})
+			}, child)
 	WebViewBridge.push_items()
 
 func _add_platform(obj_name: String, pos: Vector3, size: Vector3, color: Color) -> void:

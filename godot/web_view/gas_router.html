@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Gas Router</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #050a14;
+      color: #c8dff0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 12px;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 14px;
+      border-bottom: 1px solid #0d1e30;
+    }
+
+    h1 {
+      color: #40a8e0;
+      font-size: 12px;
+      letter-spacing: 3px;
+      font-weight: normal;
+      white-space: nowrap;
+    }
+
+    #status {
+      font-size: 10px;
+      color: #2a4060;
+    }
+    #status.connected    { color: #80d8ff; }
+    #status.disconnected { color: #ff6666; }
+
+    #pressure-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #pressure-lbl {
+      font-size: 9px;
+      letter-spacing: 2px;
+      color: #2a5070;
+      white-space: nowrap;
+    }
+
+    #pressure-track {
+      flex: 1;
+      height: 6px;
+      background: #0d1e30;
+      overflow: hidden;
+    }
+
+    #pressure-fill {
+      height: 100%;
+      transition: width 0.1s linear, background-color 0.3s;
+    }
+
+    #pressure-pct {
+      font-size: 11px;
+      width: 40px;
+      text-align: right;
+      color: #80d8ff;
+    }
+
+    #main-canvas-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 4px 0;
+    }
+
+    canvas { display: block; }
+
+    #tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: #080f1a;
+      border: 1px solid #1a3050;
+      padding: 6px 10px;
+      font-size: 11px;
+      color: #c8dff0;
+      max-width: 200px;
+      display: none;
+      z-index: 10;
+    }
+    #tooltip .tt-name { color: #40a8e0; letter-spacing: 1px; margin-bottom: 3px; }
+    #tooltip .tt-flow { color: #2a6080; font-size: 10px; }
+    #tooltip .tt-desc { color: #607890; font-size: 10px; margin-top: 4px; line-height: 1.4; }
+    #tooltip .tt-hint { color: #1a3050; font-size: 9px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>▸ GAS ROUTER</h1>
+  <span id="pressure-lbl">TANK</span>
+  <div id="pressure-wrap">
+    <div id="pressure-track"><div id="pressure-fill"></div></div>
+    <span id="pressure-pct">—%</span>
+  </div>
+  <span id="status">CONNECTING…</span>
+</header>
+
+<div id="main-canvas-wrap">
+  <canvas id="manifold" width="540" height="510"></canvas>
+</div>
+
+<div id="tooltip">
+  <div class="tt-name" id="tt-name"></div>
+  <div class="tt-flow" id="tt-flow"></div>
+  <div class="tt-desc" id="tt-desc"></div>
+  <div class="tt-hint" id="tt-hint"></div>
+</div>
+
+<script>
+// ── Module definitions ────────────────────────────────────────────────────────
+
+const DEFAULT_GAS = [
+  // DIRECTIONAL — left arm of manifold
+  { id:'shoulder_port', label:'PORT\nSHOULDER',  category:'directional', flowRate:15, minFlow:15, desc:'Left lateral thrust. Sideways dodge and strafe.',        x:0, y:0 },
+  { id:'shoulder_star', label:'STBD\nSHOULDER',  category:'directional', flowRate:15, minFlow:15, desc:'Right lateral thrust. Paired with port for crab-walk.',   x:0, y:0 },
+  { id:'dorsal_pack',   label:'DORSAL\nJETS',     category:'directional', flowRate:20, minFlow:10, desc:'Rearward nozzles. Deceleration and landing flare.',       x:0, y:0 },
+  { id:'ventral_burst', label:'VENTRAL\nBURST',   category:'directional', flowRate:20, minFlow:20, desc:'Chest-facing nozzles. Rapid backward push.',             x:0, y:0 },
+  // ATTITUDE — right arm of manifold
+  { id:'roll_port',     label:'ROLL\nPORT',       category:'attitude',    flowRate:8,  minFlow:8,  desc:'Counter-rotation vent. Prevents barrel roll leftward.',   x:0, y:0 },
+  { id:'roll_star',     label:'ROLL\nSTBD',       category:'attitude',    flowRate:8,  minFlow:8,  desc:'Counter-rotation vent. Prevents barrel roll rightward.',  x:0, y:0 },
+  { id:'pitch_ctrl',    label:'PITCH\nCONTROL',   category:'attitude',    flowRate:10, minFlow:5,  desc:'Nose-up/nose-down correction. Prevents tumbling.',        x:0, y:0 },
+  { id:'yaw_damper',    label:'YAW\nDAMPER',      category:'attitude',    flowRate:7,  minFlow:7,  desc:'Anti-spin vent on spine. Stops body rotation.',           x:0, y:0 },
+  // MANEUVER — lower left
+  { id:'jump_damper',   label:'JUMP\nDAMPENERS',  category:'maneuver',    flowRate:18, minFlow:18, desc:'Leg nozzles cushion landing. Reduces thermal spike.',     x:0, y:0 },
+  { id:'wall_pushoff',  label:'WALL\nPUSH-OFF',   category:'maneuver',    flowRate:12, minFlow:12, desc:'Chest/shoulder burst for parkour wall-kicks.',            x:0, y:0 },
+  { id:'corridor_dash', label:'CORRIDOR\nDASH',   category:'maneuver',    flowRate:22, minFlow:22, desc:'Spine jets for 0.8s speed burst in tight spaces.',        x:0, y:0 },
+  // ENVIRONMENTAL — lower right
+  { id:'terrain_anchor',label:'TERRAIN\nANCHOR',  category:'environ',     flowRate:5,  minFlow:5,  desc:'Downward vents keep suit pinned to sloped surfaces.',     x:0, y:0 },
+  { id:'dust_screen',   label:'DUST\nSCREEN',     category:'environ',     flowRate:10, minFlow:10, desc:'Micro-pore gas cloud. Visual cover burst.',               x:0, y:0 },
+];
+
+const CAT_COLOR = {
+  directional: '#40a8e0',
+  attitude:    '#00d4aa',
+  maneuver:    '#ffa040',
+  environ:     '#70c870',
+};
+
+let modules     = DEFAULT_GAS.map(m => ({ ...m, allocated: 0 }));
+let tankPressure = 1.0;
+
+// ── Layout — valve positions ──────────────────────────────────────────────────
+// Manifold: vertical pipe at x=270, from y=80 to y=430
+// Left arm (directional):  x≈130, y distributed
+// Right arm (attitude):    x≈410, y distributed
+// Lower left (maneuver):   x≈130, y≈390-450 (below left arm)
+// Lower right (environ):   x≈410, y≈390-450
+
+const W = 540, H = 510;
+const MANIFOLD_X = 270;
+const MANIFOLD_TOP    = 90;
+const MANIFOLD_BOTTOM = 440;
+
+// Valve node positions (pre-computed)
+const VALVE_POSITIONS = [
+  // DIRECTIONAL (left arm, 4 nodes)
+  { x: 100, y: 150 },
+  { x: 100, y: 220 },
+  { x: 100, y: 290 },
+  { x: 100, y: 360 },
+  // ATTITUDE (right arm, 4 nodes)
+  { x: 440, y: 150 },
+  { x: 440, y: 220 },
+  { x: 440, y: 290 },
+  { x: 440, y: 360 },
+  // MANEUVER (lower left, 3 nodes — fan out below manifold)
+  { x:  90, y: 445 },
+  { x: 160, y: 470 },
+  { x: 230, y: 488 },
+  // ENVIRON (lower right, 2 nodes)
+  { x: 380, y: 470 },
+  { x: 450, y: 445 },
+];
+
+modules.forEach((m, i) => {
+  if (VALVE_POSITIONS[i]) { m.x = VALVE_POSITIONS[i].x; m.y = VALVE_POSITIONS[i].y; }
+});
+
+// ── Interaction state ─────────────────────────────────────────────────────────
+
+let draggingIdx = -1;
+let dragStartY  = 0;
+let dragStartAlloc = 0;
+let hoveredIdx  = -1;
+const VALVE_HIT_R = 32;
+
+// ── Canvas drawing ────────────────────────────────────────────────────────────
+
+const canvas = document.getElementById('manifold');
+const ctx    = canvas.getContext('2d');
+
+function totalFlow() { return modules.reduce((s, m) => s + m.allocated, 0); }
+
+function drawManifold() {
+  ctx.clearRect(0, 0, W, H);
+  drawGrid();
+  drawPipeNetwork();
+  drawGroupLabels();
+  modules.forEach((m, i) => drawValve(i, m));
+  drawPressureCore();
+}
+
+function drawGrid() {
+  ctx.strokeStyle = '#0a1828';
+  ctx.lineWidth   = 1;
+  for (let x = 0; x < W; x += 20) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 20) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+}
+
+function drawPipeNetwork() {
+  // Main vertical manifold
+  ctx.strokeStyle = '#1a3a5a';
+  ctx.lineWidth   = 10;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(MANIFOLD_X, MANIFOLD_TOP);
+  ctx.lineTo(MANIFOLD_X, MANIFOLD_BOTTOM);
+  ctx.stroke();
+
+  // Manifold inner highlight
+  ctx.strokeStyle = '#2a5070';
+  ctx.lineWidth   = 4;
+  ctx.beginPath();
+  ctx.moveTo(MANIFOLD_X, MANIFOLD_TOP + 6);
+  ctx.lineTo(MANIFOLD_X, MANIFOLD_BOTTOM - 6);
+  ctx.stroke();
+
+  // Flow animation in manifold (if any allocated)
+  const flow = totalFlow();
+  if (flow > 0) {
+    const frac    = Math.min(flow / 100, 1.0);
+    const flowTop = MANIFOLD_BOTTOM - frac * (MANIFOLD_BOTTOM - MANIFOLD_TOP);
+    ctx.strokeStyle = '#40a8e0' + '60';
+    ctx.lineWidth   = 6;
+    ctx.setLineDash([6, 8]);
+    ctx.lineDashOffset = -(Date.now() / 60) % 14;
+    ctx.beginPath();
+    ctx.moveTo(MANIFOLD_X, flowTop);
+    ctx.lineTo(MANIFOLD_X, MANIFOLD_BOTTOM);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Branch pipes from manifold to each valve
+  modules.forEach((m, i) => {
+    const color = CAT_COLOR[m.category] || '#40a8e0';
+    const active = m.allocated >= m.minFlow && m.allocated > 0;
+
+    // Find connection point on manifold (closest y)
+    const connY = Math.max(MANIFOLD_TOP, Math.min(MANIFOLD_BOTTOM, m.y));
+
+    ctx.strokeStyle = active ? color + '60' : '#0d1e30';
+    ctx.lineWidth   = active ? 3 : 2;
+    ctx.lineCap     = 'round';
+    ctx.setLineDash(active ? [] : [3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(MANIFOLD_X, connY);
+    ctx.lineTo(m.x, m.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Animated flow on branch when active
+    if (active) {
+      const frac = m.allocated / 100;
+      ctx.strokeStyle = color + '88';
+      ctx.lineWidth   = 1.5;
+      ctx.setLineDash([4, 6]);
+      ctx.lineDashOffset = -(Date.now() / 50) % 10;
+      ctx.beginPath();
+      ctx.moveTo(MANIFOLD_X, connY);
+      ctx.lineTo(m.x, m.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  });
+}
+
+function drawGroupLabels() {
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = '9px "Courier New"';
+
+  const labels = [
+    { text: '◀ DIRECTIONAL', x:  80, y: 108, color: CAT_COLOR.directional },
+    { text: 'ATTITUDE ▶',    x: 460, y: 108, color: CAT_COLOR.attitude    },
+    { text: '◀ MANEUVER',    x:  60, y: 418, color: CAT_COLOR.maneuver    },
+    { text: 'ENVIRON ▶',     x: 460, y: 418, color: CAT_COLOR.environ     },
+  ];
+  labels.forEach(l => {
+    ctx.fillStyle = l.color + '88';
+    ctx.letterSpacing = '2px';
+    ctx.fillText(l.text, l.x, l.y);
+  });
+}
+
+function drawValve(i, mod) {
+  const hov    = i === hoveredIdx;
+  const active = mod.allocated >= mod.minFlow && mod.allocated > 0;
+  const color  = CAT_COLOR[mod.category] || '#40a8e0';
+  const frac   = mod.allocated / 100;
+
+  // Valve body (circle)
+  ctx.beginPath();
+  ctx.arc(mod.x, mod.y, VALVE_HIT_R - 4, 0, Math.PI * 2);
+  ctx.fillStyle   = active ? '#0a1828' : '#060d18';
+  ctx.fill();
+  ctx.strokeStyle = hov ? color : (active ? color + '88' : '#142030');
+  ctx.lineWidth   = hov ? 2 : 1.5;
+  ctx.stroke();
+
+  if (active) {
+    // Inner fill proportional to allocation
+    ctx.beginPath();
+    ctx.arc(mod.x, mod.y, (VALVE_HIT_R - 4) * frac * 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = color + '33';
+    ctx.fill();
+  }
+
+  // Valve handle (T-bar: horizontal = open, vertical = closed)
+  const handleAngle = -(Math.PI / 2) + (frac * Math.PI / 2);  // vertical→horizontal as frac 0→1
+  const HANDLE_L = 14;
+  const hx1 = mod.x + HANDLE_L * Math.cos(handleAngle);
+  const hy1 = mod.y + HANDLE_L * Math.sin(handleAngle);
+  const hx0 = mod.x - HANDLE_L * Math.cos(handleAngle);
+  const hy0 = mod.y - HANDLE_L * Math.sin(handleAngle);
+
+  // Handle shaft
+  ctx.beginPath();
+  ctx.moveTo(mod.x, mod.y);
+  ctx.lineTo(hx1, hy1);
+  ctx.strokeStyle = active ? color : '#2a4060';
+  ctx.lineWidth   = 3;
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+
+  // Handle crossbar (T)
+  const perpA = handleAngle + Math.PI / 2;
+  const BAR_L = 8;
+  ctx.beginPath();
+  ctx.moveTo(hx1 - BAR_L * Math.cos(perpA), hy1 - BAR_L * Math.sin(perpA));
+  ctx.lineTo(hx1 + BAR_L * Math.cos(perpA), hy1 + BAR_L * Math.sin(perpA));
+  ctx.strokeStyle = active ? color : '#2a4060';
+  ctx.lineWidth   = 3;
+  ctx.stroke();
+
+  // Label (two-line)
+  const lines = mod.label.split('\n');
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = '7px "Courier New"';
+  ctx.fillStyle    = active ? color : '#2a4060';
+  const labelY = mod.y + 22;
+  lines.forEach((ln, li) => ctx.fillText(ln, mod.x, labelY + li * 9));
+
+  // Flow % if active
+  if (mod.allocated > 0) {
+    ctx.font      = 'bold 8px "Courier New"';
+    ctx.fillStyle = active ? color : '#ff6060';
+    ctx.fillText(Math.round(mod.allocated) + '%', mod.x, mod.y - 22);
+  }
+
+  // Outer glow when hovered
+  if (hov) {
+    ctx.beginPath();
+    ctx.arc(mod.x, mod.y, VALVE_HIT_R + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = color + '44';
+    ctx.lineWidth   = 4;
+    ctx.stroke();
+  }
+}
+
+function drawPressureCore() {
+  const CX = MANIFOLD_X, CY = MANIFOLD_TOP - 32;
+  const R  = 28;
+  const over = totalFlow() / 100 > tankPressure;
+
+  // Background ring
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#0d1e30';
+  ctx.lineWidth   = 8;
+  ctx.stroke();
+
+  // Tank level arc
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, -Math.PI / 2, -Math.PI / 2 + tankPressure * Math.PI * 2);
+  ctx.strokeStyle = over ? '#ff6060' : tankPressure > 0.3 ? '#40a8e0' : '#ffa040';
+  ctx.lineWidth   = 6;
+  ctx.stroke();
+
+  // Center text
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font         = 'bold 11px "Courier New"';
+  ctx.fillStyle    = '#80d8ff';
+  ctx.fillText(Math.round(tankPressure * 100) + '%', CX, CY - 2);
+  ctx.font      = '7px "Courier New"';
+  ctx.fillStyle = '#2a5070';
+  ctx.fillText('PSI', CX, CY + 10);
+
+  // Label below
+  ctx.font      = '8px "Courier New"';
+  ctx.fillStyle = '#2a5070';
+  ctx.fillText('TANK', CX, CY + R + 10);
+}
+
+// ── Pressure & flow bar ───────────────────────────────────────────────────────
+
+const pressureFill = document.getElementById('pressure-fill');
+const pressurePct  = document.getElementById('pressure-pct');
+
+function updatePressureBar() {
+  pressureFill.style.width           = (tankPressure * 100) + '%';
+  pressureFill.style.backgroundColor = tankPressure > 0.6 ? '#40a8e0'
+                                      : tankPressure > 0.3 ? '#ffa040' : '#ff6060';
+  pressurePct.textContent = Math.round(tankPressure * 100) + '%';
+}
+
+// ── Hit testing ───────────────────────────────────────────────────────────────
+
+function hitValve(mx, my) {
+  for (let i = 0; i < modules.length; i++) {
+    const m = modules[i];
+    const dx = mx - m.x, dy = my - m.y;
+    if (dx * dx + dy * dy < VALVE_HIT_R * VALVE_HIT_R) return i;
+  }
+  return -1;
+}
+
+// ── Routing message ───────────────────────────────────────────────────────────
+
+let _routeTimer = null;
+
+function scheduleRoute() {
+  if (_routeTimer) return;
+  _routeTimer = requestAnimationFrame(() => {
+    _routeTimer = null;
+    const routes = {};
+    modules.forEach(m => { routes[m.id] = m.allocated / 100; });
+    send({ type: 'gas_route', routes });
+  });
+}
+
+// ── Canvas interaction ────────────────────────────────────────────────────────
+
+canvas.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const idx  = hitValve(e.clientX - rect.left, e.clientY - rect.top);
+  if (idx >= 0) {
+    draggingIdx    = idx;
+    dragStartY     = e.clientY;
+    dragStartAlloc = modules[idx].allocated;
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const mx   = e.clientX - rect.left;
+  const my   = e.clientY - rect.top;
+
+  if (draggingIdx >= 0) {
+    // Drag up = increase flow (100px drag = 100% flow)
+    const delta = (dragStartY - e.clientY);
+    const m     = modules[draggingIdx];
+    let alloc   = Math.max(0, Math.min(100, dragStartAlloc + delta));
+    // Snap to 5% increments when close
+    const snapped = Math.round(alloc / 5) * 5;
+    if (Math.abs(alloc - snapped) < 3) alloc = snapped;
+    m.allocated = alloc;
+    scheduleRoute();
+    return;
+  }
+
+  const prev = hoveredIdx;
+  hoveredIdx = hitValve(mx, my);
+  if (hoveredIdx !== prev) updateTooltip(e);
+  else if (hoveredIdx >= 0) updateTooltipPos(e);
+});
+
+canvas.addEventListener('mouseup', () => { draggingIdx = -1; });
+canvas.addEventListener('mouseleave', () => {
+  if (draggingIdx < 0) { hoveredIdx = -1; hideTooltip(); }
+});
+
+// Double-click: toggle open/closed
+canvas.addEventListener('dblclick', e => {
+  const rect = canvas.getBoundingClientRect();
+  const idx  = hitValve(e.clientX - rect.left, e.clientY - rect.top);
+  if (idx < 0) return;
+  const m = modules[idx];
+  m.allocated = m.allocated > 0 ? 0 : m.flowRate;
+  scheduleRoute();
+});
+
+// ── Tooltip ───────────────────────────────────────────────────────────────────
+
+const tooltip = document.getElementById('tooltip');
+
+function updateTooltip(e) {
+  if (hoveredIdx < 0) { hideTooltip(); return; }
+  const mod = modules[hoveredIdx];
+  document.getElementById('tt-name').textContent = mod.label.replace('\n', ' ');
+  document.getElementById('tt-flow').textContent = `FLOW: ${mod.flowRate}%  MIN: ${mod.minFlow}%`;
+  document.getElementById('tt-desc').textContent = mod.desc || '';
+  document.getElementById('tt-hint').textContent = 'DRAG UP/DOWN · DOUBLE-CLICK TOGGLE';
+  tooltip.style.display = 'block';
+  updateTooltipPos(e);
+}
+
+function updateTooltipPos(e) {
+  tooltip.style.left = (e.clientX + 14) + 'px';
+  tooltip.style.top  = (e.clientY - 10) + 'px';
+}
+
+function hideTooltip() { tooltip.style.display = 'none'; }
+
+// ── Animation loop ────────────────────────────────────────────────────────────
+
+function frame() {
+  requestAnimationFrame(frame);
+  drawManifold();
+}
+
+requestAnimationFrame(frame);
+updatePressureBar();
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+const STATUS = document.getElementById('status');
+let ws;
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN)
+    ws.send(JSON.stringify(obj));
+}
+
+function setStatus(cls, text) {
+  STATUS.className   = cls;
+  STATUS.textContent = text;
+}
+
+function applyGasState(msg) {
+  tankPressure = msg.tank_pressure || 1.0;
+  const incoming = msg.modules || [];
+  modules = incoming.map((m, i) => ({
+    id:        m.id,
+    label:     m.label || m.id.replace(/_/g, '\n').toUpperCase(),
+    category:  m.category || 'directional',
+    flowRate:  (m.flow_rate || 0.1) * 100,
+    minFlow:   (m.min_flow  || 0)   * 100,
+    desc:      m.desc || '',
+    allocated: (m.allocated || 0) * 100,
+    x:         VALVE_POSITIONS[i] ? VALVE_POSITIONS[i].x : 270,
+    y:         VALVE_POSITIONS[i] ? VALVE_POSITIONS[i].y : 270,
+  }));
+  updatePressureBar();
+}
+
+// ── Embedded pointer injection (Godot → WebKit2 → canvas) ────────────────────
+
+function injectPointer(msg) {
+  const el = document.elementFromPoint(msg.x, msg.y) || canvas;
+  el.dispatchEvent(new MouseEvent(msg.subtype, {
+    bubbles: true, cancelable: true, view: window,
+    clientX: msg.x, clientY: msg.y,
+    screenX: msg.x, screenY: msg.y,
+    button:  0,
+    buttons: (msg.subtype === 'mousedown' || msg.subtype === 'mousemove') ? 1 : 0,
+  }));
+  if (msg.subtype === 'mousemove') {
+    el.dispatchEvent(new MouseEvent('mousemove', {
+      bubbles: true, cancelable: true, view: window,
+      clientX: msg.x, clientY: msg.y,
+      button: 0, buttons: 0,
+    }));
+  }
+}
+
+function connect() {
+  setStatus('', 'CONNECTING…');
+  ws = new WebSocket('ws://localhost:9787');
+  ws.binaryType = 'arraybuffer';
+  ws.addEventListener('open',  () => setStatus('connected', 'CONNECTED'));
+  ws.addEventListener('close', () => { setStatus('disconnected', 'DISCONNECTED — retrying…'); setTimeout(connect, 2000); });
+  ws.addEventListener('error', () => {});
+  ws.addEventListener('message', e => {
+    const text = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
+    const msg  = JSON.parse(text);
+    if (msg.type === 'gas_state') applyGasState(msg);
+    else if (msg.type === 'pointer' && msg.page === 'gas_router') injectPointer(msg);
+  });
+}
+
+connect();
+</script>
+</body>
+</html>
