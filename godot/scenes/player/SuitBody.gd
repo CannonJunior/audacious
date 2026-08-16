@@ -49,6 +49,11 @@ func _emit_initial_config() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# Server runs physics for all players. Clients only run their own.
+	var nm := NetworkManager
+	if nm != null and nm.mode != nm.NetMode.OFFLINE and not nm.is_server():
+		if get_parent().get("player_id") != nm.local_player_id:
+			return
 	movement_controller.tick(delta)
 	move_and_slide()
 	EventBus.speed_changed.emit(Vector3(velocity.x, 0.0, velocity.z).length())

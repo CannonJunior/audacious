@@ -5,8 +5,8 @@
 [node name="GasRouterPanel" type="Control"]
 offset_left = 700.0
 offset_top = 480.0
-offset_right = 1223.0
-offset_bottom = 1039.0
+offset_right = 938.0
+offset_bottom = 823.0
 clip_contents = true
 visible = false
 

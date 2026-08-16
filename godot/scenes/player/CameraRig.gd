@@ -8,10 +8,10 @@ const MovementController = preload("res://systems/movement/MovementController.gd
 const SuitStats = preload("res://data/SuitStats.gd")
 
 const FOLLOW_SPEED   := 10.0
-const FOV_DEFAULT    := 75.0
-const FOV_SPRINT     := 85.0
-const FOV_FLIGHT     := 90.0
 const FOV_LERP_SPEED := 6.0
+# FOV values are offsets/ratios relative to GameSettings.camera_fov.
+const FOV_SPRINT_BONUS := 10.0   # added on top of base FOV while sprinting
+const FOV_FLIGHT_BONUS := 15.0   # added on top of base FOV at max boost speed
 
 # Fixed camera angle: slight downward look, positioned directly behind the suit.
 # Negative pitch = camera above the suit looking down; below dive-bonus threshold (0.25 rad).
@@ -22,7 +22,7 @@ const FIXED_PITCH := -0.22   # radians ≈ 12.5° downward
 const SPRING_Z_REACH := 4.5  # metres, conservative
 
 var _suit  # SuitBody, set in _ready
-var _current_fov: float = FOV_DEFAULT
+var _current_fov: float = 75.0   # initialised from GameSettings in _ready
 
 @onready var spring_arm: SpringArm3D = $SpringArm3D
 @onready var camera: Camera3D = $SpringArm3D/Camera3D
@@ -30,6 +30,7 @@ var _current_fov: float = FOV_DEFAULT
 func _ready() -> void:
 	_suit = get_parent()
 	global_position = _suit.global_position
+	_current_fov = GameSettings.camera_fov
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 func _process(delta: float) -> void:
@@ -45,13 +46,14 @@ func _process(delta: float) -> void:
 	rotation.y = _suit.rotation.y + PI
 	spring_arm.rotation.x = FIXED_PITCH
 
-	# Speed-sensitive FOV
+	# Speed-sensitive FOV — offsets relative to user's chosen base FOV.
 	var speed: float = _suit.velocity.length()
-	var target_fov := FOV_DEFAULT
+	var base_fov: float = GameSettings.camera_fov
+	var target_fov := base_fov
 	if _suit.movement_controller.current_state == MovementController.State.FLIGHT:
-		target_fov = lerpf(FOV_DEFAULT, FOV_FLIGHT, clampf(speed / SuitStats.MAX_BOOST_SPEED, 0.0, 1.0))
+		target_fov = base_fov + lerpf(0.0, FOV_FLIGHT_BONUS, clampf(speed / SuitStats.MAX_BOOST_SPEED, 0.0, 1.0))
 	elif speed > SuitStats.MAX_GROUND_SPEED * 1.2:
-		target_fov = FOV_SPRINT
+		target_fov = base_fov + FOV_SPRINT_BONUS
 	_current_fov = lerpf(_current_fov, target_fov, FOV_LERP_SPEED * delta)
 	camera.fov = _current_fov
 

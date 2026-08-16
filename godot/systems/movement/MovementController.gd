@@ -16,6 +16,9 @@ const TURN_SPEED  := 2.62   # radians/s ≈ 150°/s
 const ROLL_SPEED         := 2.09   # radians/s ≈ 120°/s
 const ROLL_CORRECT_SPEED  := 0.52   # radians/s ≈  30°/s — gradual auto-level on force-land
 const LAND_DESCENT_SPEED  := 20.0   # m/s downward applied on force-land
+# Banked-turn rate: yaw contributed per second at 90° bank and full boost speed.
+# At 60° bank (sin≈0.87) and max speed this produces ≈174°/s; at 90° bank ≈200°/s.
+const BANK_TURN_RATE      := 3.49   # radians/s
 
 var current_state: State = State.GROUNDED
 var _correcting_roll: bool = false
@@ -49,6 +52,15 @@ func tick(delta: float) -> void:
 		_suit.rotation.z = move_toward(_suit.rotation.z, 0.0, _roll_correct_speed() * delta)
 		if is_zero_approx(_suit.rotation.z):
 			_correcting_roll = false
+
+	# Banked turn: during flight, roll angle drives yaw proportional to horizontal speed.
+	# Mirrors a coordinated aircraft turn — ω = BANK_TURN_RATE × sin(φ) × (v / v_max).
+	# sign: positive rotation.z = bank right → yaw right = decrease rotation.y
+	if current_state == State.FLIGHT and not is_zero_approx(_suit.rotation.z):
+		var hspeed: float = Vector2(_suit.velocity.x, _suit.velocity.z).length()
+		var boost_speed: float = maxf(_suit.get_stats().boost_speed, 1.0)
+		var speed_ratio: float = clampf(hspeed / boost_speed, 0.0, 1.0)
+		_suit.rotation.y -= sin(_suit.rotation.z) * BANK_TURN_RATE * speed_ratio * delta
 
 	_process_transitions(input, delta)
 

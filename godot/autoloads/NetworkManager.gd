@@ -68,6 +68,11 @@ func go_offline() -> void:
 	_peer_to_player.clear()
 	_next_player_number = 2
 
+## Host calls this to load the game scene on all peers simultaneously.
+@rpc("authority", "call_local", "reliable")
+func load_game_scene(scene_path: String) -> void:
+	get_tree().change_scene_to_file(scene_path)
+
 func is_server() -> bool:
 	return multiplayer.is_server()
 
@@ -128,3 +133,29 @@ func _on_connected_to_server() -> void:
 func _on_connection_failed() -> void:
 	push_error("NetworkManager: connection failed")
 	go_offline()
+
+# ── Chat relay ────────────────────────────────────────────────────────────────
+
+## Send a chat message; handles both offline and networked sessions.
+func chat_say(message: String) -> void:
+	if mode == NetMode.OFFLINE:
+		# Bypass the RPC system entirely in single-player.
+		EventBus.chat_message_received.emit(local_player_id, message)
+	elif multiplayer.is_server():
+		_recv_chat.rpc(local_player_id, message)
+	else:
+		_send_chat.rpc_id(1, message)
+
+## Client → server: deliver my chat message for relay.
+@rpc("any_peer", "reliable")
+func _send_chat(message: String) -> void:
+	if not multiplayer.is_server():
+		return
+	var peer: int = multiplayer.get_remote_sender_id()
+	var sender: String = _peer_to_player.get(peer, "player_%d" % peer)
+	_recv_chat.rpc(sender, message)
+
+## Server → all: broadcast a chat message to every peer.
+@rpc("authority", "call_local", "reliable")
+func _recv_chat(sender_id: String, message: String) -> void:
+	EventBus.chat_message_received.emit(sender_id, message)

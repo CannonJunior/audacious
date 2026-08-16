@@ -5,8 +5,8 @@
 [node name="PowerRouterPanel" type="Control"]
 offset_left = 80.0
 offset_top = 480.0
-offset_right = 623.0
-offset_bottom = 1057.0
+offset_right = 408.0
+offset_bottom = 823.0
 clip_contents = true
 visible = false
 

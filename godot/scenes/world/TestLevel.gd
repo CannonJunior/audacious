@@ -1,10 +1,53 @@
 class_name TestLevel
 extends Node3D
 
+const PLAYER_SCENE := preload("res://scenes/player/Player.tscn")
+
 func _ready() -> void:
 	_setup_environment()
 	_build_geometry()
 	_register_scene_items()
+	_setup_multiplayer()
+
+func _setup_multiplayer() -> void:
+	if NetworkManager.mode == NetworkManager.NetMode.OFFLINE:
+		return
+	EventBus.peer_connected.connect(_on_peer_connected)
+	if NetworkManager.is_server():
+		# Spawn players for any peers that connected during the lobby phase.
+		for peer_id: int in multiplayer.get_peers():
+			var pid := NetworkManager.get_player_id_for_peer(peer_id)
+			if not pid.is_empty():
+				spawn_player.rpc(pid, Vector3(randf_range(-4.0, 4.0), 2.0, randf_range(-4.0, 4.0)))
+
+func _physics_process(_delta: float) -> void:
+	if NetworkManager.is_server() and NetworkManager.mode != NetworkManager.NetMode.OFFLINE:
+		NetworkManager.apply_buffered_inputs(self)
+
+## NetworkManager.apply_buffered_inputs() calls this to route input to the right SuitBody.
+func get_suit_node(player_id: String) -> Node:
+	for child in get_children():
+		if child.get("player_id") == player_id:
+			return child.get_node_or_null("SuitBody")
+	return null
+
+func _on_peer_connected(peer_id: int) -> void:
+	if not NetworkManager.is_server():
+		return
+	var player_id := NetworkManager.get_player_id_for_peer(peer_id)
+	if not player_id.is_empty():
+		spawn_player.rpc(player_id, Vector3(randf_range(-4.0, 4.0), 2.0, randf_range(-4.0, 4.0)))
+
+## Server calls this (call_local) to synchronize player node creation across all peers.
+@rpc("authority", "call_local", "reliable")
+func spawn_player(player_id: String, pos: Vector3) -> void:
+	if get_node_or_null(player_id):
+		return
+	var player := PLAYER_SCENE.instantiate() as Node3D
+	player.name = player_id
+	player.set("player_id", player_id)
+	player.position = pos
+	add_child(player)
 
 func _setup_environment() -> void:
 	var env := WorldEnvironment.new()

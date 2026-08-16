@@ -54,6 +54,8 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if get_viewport().gui_get_focus_owner() != null:
+		return
 	if event.is_action_pressed("open_garage"):
 		visible = not visible
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if visible else Input.MOUSE_MODE_CAPTURED

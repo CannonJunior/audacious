@@ -11,6 +11,15 @@ const SuitInputState = preload("res://network/SuitInputState.gd")
 @onready var _suit = $"../SuitBody"  # SuitBody
 
 func _physics_process(_delta: float) -> void:
+	# Don't process game input while a UI field (e.g. chat) has keyboard focus.
+	if get_viewport().gui_get_focus_owner() != null:
+		return
+
+	# In multiplayer, only handle input for the local player's suit.
+	if NetworkManager.mode != NetworkManager.NetMode.OFFLINE:
+		if get_parent().get("player_id") != NetworkManager.local_player_id:
+			return
+
 	# Debug preset switching — before building state so it takes effect this frame
 	if Input.is_action_just_pressed("debug_preset_light"):
 		_suit.set_configuration(SuitPresets.scout())
@@ -66,4 +75,8 @@ func _physics_process(_delta: float) -> void:
 			state.ability_slot = i
 			break
 
-	_suit.apply_input(state)
+	if NetworkManager.mode == NetworkManager.NetMode.OFFLINE or NetworkManager.is_server():
+		_suit.apply_input(state)
+	else:
+		var packet := state.to_packet(0, NetworkManager.local_player_id, multiplayer.get_unique_id())
+		NetworkManager.submit_input.rpc_id(1, packet.serialize())

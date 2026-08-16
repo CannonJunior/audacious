@@ -115,6 +115,13 @@ signal upgrade_chain_completed(chain_id: StringName)
 
 signal recommendation_list_updated(recommendations: Array)
 
+# ── Chat ─────────────────────────────────────────────────────────────────────
+
+signal chat_message_received(sender_id: String, message: String)
+signal ollama_response_received(message: String, model: String)
+signal ollama_models_loaded(models: Array)
+signal ollama_error(error: String)
+
 # ── Game State ────────────────────────────────────────────────────────────────
 
 signal game_mode_changed(new_mode: StringName)

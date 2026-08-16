@@ -61,7 +61,9 @@ var _cached_stats:         Dictionary = {}
 var _flight_timer:         float = 0.0
 var _all_suit_nodes_found: bool  = false
 var _flight_panels_bound:  bool  = false
-const _FLIGHT_HZ           := 20.0
+# Read from GameSettings.suit_readout_hz; const is the fallback before settings load.
+const _FLIGHT_HZ_DEFAULT   := 20.0
+var   _flight_hz:          float = _FLIGHT_HZ_DEFAULT
 
 # ── Node preview SubViewport ──────────────────────────────────────────────────
 
@@ -124,6 +126,7 @@ func _ready() -> void:
 		push_error("WebViewBridge: TCPServer failed on port %d (%s)" % [WS_PORT, error_string(err)])
 		set_process(false)
 	EventBus.suit_stats_updated.connect(_on_suit_stats_updated)
+	GameSettings.settings_applied.connect(_on_settings_applied)
 
 
 func _exit_tree() -> void:
@@ -177,9 +180,9 @@ func _process(delta: float) -> void:
 		_bind_panel()
 		_sync_panel_status()
 
-	# Flight instruments + attitude gyro throttled at 20 Hz.
+	# Flight instruments + attitude gyro throttled at suit_readout_hz.
 	_flight_timer += delta
-	if _flight_timer >= 1.0 / _FLIGHT_HZ:
+	if _flight_timer >= 1.0 / _flight_hz:
 		_flight_timer = 0.0
 		_poll_flight()
 
@@ -507,6 +510,10 @@ func _on_suit_stats_updated(new_stats) -> void:
 		"max_flight_altitude": new_stats.max_flight_altitude,
 		"flight_available":    new_stats.flight_available,
 	}
+
+
+func _on_settings_applied() -> void:
+	_flight_hz = GameSettings.suit_readout_hz
 
 
 func _find_suit_nodes() -> void:
