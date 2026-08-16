@@ -54,7 +54,8 @@ func _ready() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if get_viewport().gui_get_focus_owner() != null:
+	var focus := get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit or focus is SpinBox:
 		return
 	if event.is_action_pressed("open_garage"):
 		visible = not visible

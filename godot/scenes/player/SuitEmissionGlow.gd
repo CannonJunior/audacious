@@ -68,6 +68,14 @@ extends Node
 ##     EventBus.boost_activated.connect(_on_boost_activated)
 
 const TEXTURE_BASE := "res://assets/suit/textures/"
+const GLOW_COLOR    := Color(1.0, 0.55, 0.16)   ## warm amber tint, shared by the
+                                                 ## material glow and ember particles.
+
+## Glow fades linearly to GLOW_FALLOFF_MIN by this distance (metres, bind pose)
+## from the chest-socket bone. Surfaces past the radius still glow faintly
+## rather than going fully dark.
+const GLOW_FALLOFF_RADIUS := 1.3
+const GLOW_FALLOFF_MIN    := 0.15
 
 var _skeleton:  Skeleton3D = null
 var _suit_root: Node3D     = null
@@ -75,10 +83,20 @@ var _suit_root: Node3D     = null
 # Duplicated material references keyed by role.
 var _mats: Dictionary = {}   # "head", "body_01", "body_02", "equip_weapon", etc.
 
+# Per-role distance falloff (0..1), keyed the same as _mats. Computed once in
+# _setup_emission_materials() from actual mesh geometry — see _surface_centroid().
+var _dist_factor: Dictionary = {}
+var _chest_center: Vector3 = Vector3.ZERO
+
 var _pulse_phase:    float = 0.0
 var _crunch_override: float = 0.0
 var _boost_lean:      float = 0.0
 var _last_fall_speed: float = 0.0
+
+# Ambient ember particles — spread across the torso to broaden the glow beyond
+# the emissive-texture surfaces (see setup()/tick()).
+var _p_ember:          GPUParticles3D = null
+var _ember_anchor_bone: int           = -1
 
 
 func setup(skeleton: Skeleton3D, suit_root: Node3D) -> void:
@@ -86,6 +104,11 @@ func setup(skeleton: Skeleton3D, suit_root: Node3D) -> void:
 	_suit_root = suit_root
 
 	_setup_emission_materials()
+
+	_ember_anchor_bone = _skeleton.find_bone("Chest_Socket")
+	if _ember_anchor_bone < 0:
+		_ember_anchor_bone = _skeleton.find_bone("spine_03")
+	_p_ember = _make_ember_emitter()
 
 	EventBus.suit_landed.connect(_on_suit_landed)
 	EventBus.boost_activated.connect(_on_boost_activated)
@@ -98,52 +121,175 @@ func tick(ctx: Dictionary) -> void:
 	if velocity.y < -0.5:
 		_last_fall_speed = absf(velocity.y)
 
-	# Advance pulse oscillator.
-	_pulse_phase = fmod(_pulse_phase + 1.2 * TAU * delta, TAU)
-	var pulse    := 0.15 * sin(_pulse_phase)
+	# Advance pulse oscillator. Slower and shallower than before — a wide swing
+	# reads as flickering rather than a soft glow.
+	_pulse_phase = fmod(_pulse_phase + 0.7 * TAU * delta, TAU)
+	var pulse    := 0.06 * sin(_pulse_phase)
 
-	# TODO (Session D): drive emission_energy_multiplier on each stored material.
-	# Example:
-	#   if _mats.has("head") and _mats["head"] is StandardMaterial3D:
-	#       _mats["head"].emission_energy_multiplier =
-	#           clampf(PowerRouter.get_category_allocation("sensor") * 3.0 + pulse, 0.0, 4.0)
+	# sqrt() lifts the low end of the curve so the glow ramps in gently instead
+	# of snapping bright, and the lowered clamp keeps peak brightness soft.
+	# Each result is scaled by _dist_factor so surfaces farther from the chest
+	# center glow proportionally less.
+	if _mats.has("head"):
+		_mats["head"].emission_energy_multiplier = clampf((sqrt(PowerRouter.get_category_allocation("sensor")) * 1.6 + pulse) * _dist_factor.get("head", 1.0), 0.0, 2.2)
+	if _mats.has("body_01"):
+		_mats["body_01"].emission_energy_multiplier = clampf((sqrt(PowerRouter.total_load_pct() / 100.0) * 1.4 + pulse) * _dist_factor.get("body_01", 1.0), 0.0, 2.2)
+	if _mats.has("body_02"):
+		_mats["body_02"].emission_energy_multiplier = clampf((sqrt(PowerRouter.total_load_pct() / 100.0) * 1.4 + pulse) * _dist_factor.get("body_02", 1.0), 0.0, 2.2)
+	if _mats.has("equip_weapon"):
+		_mats["equip_weapon"].emission_energy_multiplier = clampf((sqrt(PowerRouter.get_category_allocation("weapon")) * 1.5 + pulse) * _dist_factor.get("equip_weapon", 1.0), 0.0, 2.2)
+	# Sensor/defense equipment plating — previously duplicated but never driven,
+	# so the glow only covered head/body/weapon. Wiring these broadens coverage
+	# to a larger area of the suit.
+	if _mats.has("equip_sensor"):
+		_mats["equip_sensor"].emission_energy_multiplier = clampf((sqrt(PowerRouter.get_category_allocation("sensor")) * 1.5 + pulse) * _dist_factor.get("equip_sensor", 1.0), 0.0, 2.2)
+	if _mats.has("equip_def"):
+		_mats["equip_def"].emission_energy_multiplier = clampf((sqrt(PowerRouter.get_category_allocation("defense")) * 1.5 + pulse) * _dist_factor.get("equip_def", 1.0), 0.0, 2.2)
+
+	# Ambient ember particles — broadens the glow beyond the emissive-texture
+	# surfaces into a soft cloud drifting off the torso.
+	if _p_ember and _ember_anchor_bone >= 0:
+		_p_ember.global_transform = _skeleton.global_transform * _skeleton.get_bone_global_pose(_ember_anchor_bone)
+		var load_frac := PowerRouter.total_load_pct() / 100.0
+		_p_ember.amount_ratio = clampf(sqrt(load_frac) * 0.85 + pulse, 0.0, 1.0)
 
 	# ── One-shot crunch / lean-back ─────────────────────────────────────────
-	# TODO (Session D): apply and decay _crunch_override and _boost_lean.
-	# Example for landing crunch:
-	#   if _crunch_override > 0.0:
-	#       var root := get_parent()._suit_root as Node3D
-	#       root.rotation_degrees.x += _crunch_override
-	#       _crunch_override = maxf(0.0, _crunch_override - 60.0 * delta)
-	#
-	# Boost lean-back (negative = lean back):
-	#   if _boost_lean < 0.0:
-	#       var root := get_parent()._suit_root as Node3D
-	#       root.rotation_degrees.x += _boost_lean
-	#       _boost_lean = minf(0.0, _boost_lean + 30.0 * delta)
+	if _crunch_override > 0.0:
+		var root := get_parent()._suit_root as Node3D
+		root.rotation_degrees.x += _crunch_override
+		_crunch_override = maxf(0.0, _crunch_override - 60.0 * delta)
+
+	if _boost_lean < 0.0:
+		var root := get_parent()._suit_root as Node3D
+		root.rotation_degrees.x += _boost_lean
+		_boost_lean = minf(0.0, _boost_lean + 30.0 * delta)
 
 
 # ── Private ────────────────────────────────────────────────────────────────────
+
+const _ROLE_TEXTURE_MAP := {
+	"Head":     ["head",         "T_1034501_Head_E2.png"],
+	"Body_01":  ["body_01",      "T_1034501_Body_01_02_E.png"],
+	"Body_02":  ["body_02",      "T_1034501_Body_02_E.png"],
+	"Equip_04": ["equip_weapon", "T_1034501_Equip_04_E.png"],
+	"Equip_03": ["equip_sensor", "T_1034501_Equip_03_E.png"],
+	"Equip_02": ["equip_def",    "T_1034501_Equip_02_E.png"],
+}
+
 
 func _setup_emission_materials() -> void:
 	if not _suit_root:
 		return
 
-	# TODO (Session D): discover MeshInstance3D children, duplicate materials,
-	# assign emission textures, and populate _mats.
-	#
-	# Map of material name substring → role key → texture file:
-	#   "Head"     → "head"         → TEXTURE_BASE + "T_1034501_Head_E2.png"
-	#   "Body_01"  → "body_01"      → TEXTURE_BASE + "T_1034501_Body_01_02_E.png"
-	#   "Body_02"  → "body_02"      → TEXTURE_BASE + "T_1034501_Body_02_E.png"
-	#   "Equip_04" → "equip_weapon" → TEXTURE_BASE + "T_1034501_Equip_04_E.png"
-	#   "Equip_03" → "equip_sensor" → TEXTURE_BASE + "T_1034501_Equip_03_E.png"
-	#   "Equip_02" → "equip_def"    → TEXTURE_BASE + "T_1034501_Equip_02_E.png"
-	#
-	# Remember: MUST call mat.duplicate() before setting any property.
-	# MUST check `mat is StandardMaterial3D` before casting.
-	# Use set_surface_override_material() to write the duplicate back.
-	pass
+	var chest_bone := _skeleton.find_bone("Chest_Socket")
+	if chest_bone >= 0:
+		_chest_center = (_skeleton.global_transform * _skeleton.get_bone_global_rest(chest_bone)).origin
+
+	var mesh_nodes := _suit_root.find_children("*", "MeshInstance3D", true, false)
+	for mn: MeshInstance3D in mesh_nodes:
+		for surf in mn.get_surface_override_material_count():
+			var mat := mn.get_active_material(surf)
+			if not mat is StandardMaterial3D:
+				continue
+			for name_substr: String in _ROLE_TEXTURE_MAP:
+				if not mat.resource_name.contains(name_substr):
+					continue
+				var role_key: String = _ROLE_TEXTURE_MAP[name_substr][0]
+				var tex_file: String = _ROLE_TEXTURE_MAP[name_substr][1]
+				var tex := _load_image_texture(TEXTURE_BASE + tex_file)
+				var dup := mat.duplicate() as StandardMaterial3D
+				dup.emission_enabled = true
+				if tex:
+					dup.emission_texture = tex
+				dup.emission = GLOW_COLOR
+				dup.emission_energy_multiplier = 0.0
+				mn.set_surface_override_material(surf, dup)
+				_mats[role_key] = dup
+
+				# Distance falloff — measured from this surface's actual bind-pose
+				# geometry to the chest center, not a guessed per-role constant.
+				if chest_bone >= 0:
+					var centroid_world := mn.global_transform * _surface_centroid(mn.mesh, surf)
+					var dist := centroid_world.distance_to(_chest_center)
+					_dist_factor[role_key] = clampf(1.0 - dist / GLOW_FALLOFF_RADIUS, GLOW_FALLOFF_MIN, 1.0)
+				else:
+					_dist_factor[role_key] = 1.0
+				break
+
+
+## Centroid of a surface's bind-pose vertices, in the mesh's local space.
+func _surface_centroid(mesh: Mesh, surf: int) -> Vector3:
+	var arrays := mesh.surface_get_arrays(surf)
+	var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	if verts.is_empty():
+		return Vector3.ZERO
+	var sum := Vector3.ZERO
+	for v in verts:
+		sum += v
+	return sum / verts.size()
+
+
+func _make_ember_emitter() -> GPUParticles3D:
+	var p := GPUParticles3D.new()
+	p.amount       = 70
+	p.lifetime     = 1.3
+	p.local_coords = false
+	p.amount_ratio = 0.0
+	p.emitting     = true
+
+	var mat := ParticleProcessMaterial.new()
+	mat.direction               = Vector3(0, 1, 0)
+	mat.spread                  = 45.0
+	mat.initial_velocity_min    = 0.05
+	mat.initial_velocity_max    = 0.22
+	mat.gravity                 = Vector3(0, 0.12, 0)   ## gentle heat-shimmer drift
+	mat.scale_min                = 0.5
+	mat.scale_max                = 1.4
+	mat.color                    = GLOW_COLOR
+	mat.emission_shape           = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+	mat.emission_box_extents     = Vector3(0.30, 0.42, 0.20)   ## spans the torso — "larger area"
+	p.process_material = mat
+
+	var mesh := QuadMesh.new()
+	mesh.size = Vector2(0.018, 0.018)   ## "smaller particles"
+	var draw_mat := StandardMaterial3D.new()
+	draw_mat.shading_mode                = BaseMaterial3D.SHADING_MODE_UNSHADED
+	draw_mat.transparency                = BaseMaterial3D.TRANSPARENCY_ALPHA
+	draw_mat.blend_mode                  = BaseMaterial3D.BLEND_MODE_ADD
+	draw_mat.billboard_mode              = BaseMaterial3D.BILLBOARD_PARTICLES
+	draw_mat.vertex_color_use_as_albedo  = true
+	draw_mat.albedo_color                = GLOW_COLOR
+	draw_mat.albedo_texture              = _make_dot_texture()   ## soft radial falloff
+	mesh.material = draw_mat
+	p.draw_pass_1 = mesh
+
+	add_child(p)
+	return p
+
+
+## Soft radial-falloff dot — without it each particle renders as a hard-edged
+## flat quad instead of a soft glow.
+func _make_dot_texture() -> GradientTexture2D:
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 1))
+	grad.set_color(1, Color(1, 1, 1, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient  = grad
+	tex.width     = 32
+	tex.height    = 32
+	tex.fill      = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to   = Vector2(1.0, 0.5)
+	return tex
+
+
+func _load_image_texture(res_path: String) -> ImageTexture:
+	var abs_path := ProjectSettings.globalize_path(res_path)
+	var img := Image.new()
+	if img.load(abs_path) != OK:
+		push_warning("[SuitEmissionGlow] Could not load emission texture: " + res_path)
+		return null
+	return ImageTexture.create_from_image(img)
 
 
 func _on_suit_landed(_position: Vector3, _thermal: float) -> void:

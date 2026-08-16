@@ -13,15 +13,21 @@ enum State { GROUNDED, AIRBORNE, FLIGHT }
 
 const GRAVITY     := 9.8
 const TURN_SPEED  := 2.62   # radians/s ≈ 150°/s
-const ROLL_SPEED         := 2.09   # radians/s ≈ 120°/s
-const ROLL_CORRECT_SPEED  := 0.52   # radians/s ≈  30°/s — gradual auto-level on force-land
-const LAND_DESCENT_SPEED  := 20.0   # m/s downward applied on force-land
+const ROLL_SPEED            := 2.79   # radians/s ≈ 160°/s — 33% faster than original 120°/s
+const BARREL_ROLL_SPEED     := 6.28   # radians/s ≈ 360°/s — full rotation per second in flight
+const ROLL_AUTO_LEVEL_SPEED := 1.57   # radians/s ≈  90°/s — restores level after barrel roll
+const ROLL_CORRECT_SPEED     := 0.52  # radians/s ≈  30°/s — gradual auto-level on force-land
+const LAND_DESCENT_SPEED   := 20.0   # m/s downward applied on force-land
+const RAPID_DESCENT_SPEED  := 120.0  # m/s — 6× descent rate on double-tap X (requires dorsal_pack gas)
 # Banked-turn rate: yaw contributed per second at 90° bank and full boost speed.
 # At 60° bank (sin≈0.87) and max speed this produces ≈174°/s; at 90° bank ≈200°/s.
 const BANK_TURN_RATE      := 3.49   # radians/s
 
-var current_state: State = State.GROUNDED
-var _correcting_roll: bool = false
+var current_state:  State     = State.GROUNDED
+var movement_mode:  StringName = &"STANDING"  # fine-grained label read by WebViewBridge
+var _correcting_roll:  bool = false
+var _descending:       bool = false  # true from force-land until touchdown; drives LANDING display
+var _rapid_descending: bool = false  # true only when dorsal-pack rapid descent fired
 
 var _suit  # SuitBody, set in _ready
 var _pending_input: SuitInputState = SuitInputState.new()
@@ -45,9 +51,14 @@ func tick(delta: float) -> void:
 	# Rotate the suit body before movement so wish_dir uses the updated facing.
 	if input.turn_delta != 0.0:
 		_suit.rotation.y += input.turn_delta * TURN_SPEED * delta
-	if input.roll_delta != 0.0:
+	if input.roll_delta != 0.0 and current_state != State.GROUNDED:
 		_correcting_roll = false
-		_suit.rotation.z += input.roll_delta * ROLL_SPEED * delta
+		# Barrel roll in flight: full 360°/s spin; normal tilt on ground/air.
+		var roll_rate := BARREL_ROLL_SPEED if current_state == State.FLIGHT else ROLL_SPEED
+		_suit.rotation.z += input.roll_delta * roll_rate * delta
+	elif current_state == State.FLIGHT and not is_zero_approx(_suit.rotation.z):
+		# Auto-level after barrel roll at 90°/s — mirrors warchief autoLevelRate.
+		_suit.rotation.z = move_toward(_suit.rotation.z, 0.0, ROLL_AUTO_LEVEL_SPEED * delta)
 	elif _correcting_roll:
 		_suit.rotation.z = move_toward(_suit.rotation.z, 0.0, _roll_correct_speed() * delta)
 		if is_zero_approx(_suit.rotation.z):
@@ -69,6 +80,8 @@ func tick(delta: float) -> void:
 		State.AIRBORNE: airborne_state.tick(delta, input)
 		State.FLIGHT:   flight_state.tick(delta, input)
 
+	_update_movement_mode(input)
+
 func _process_transitions(input: SuitInputState, delta: float) -> void:
 	var on_floor: bool = _suit.is_on_floor()
 	var stats          = _suit.get_stats()
@@ -85,7 +98,16 @@ func _process_transitions(input: SuitInputState, delta: float) -> void:
 		State.AIRBORNE:
 			if on_floor:
 				_on_land()
+			elif input.rapid_descent_pressed:
+				_correcting_roll = true
+				_descending = true
+				_rapid_descending = true
+				_suit.velocity.y = -RAPID_DESCENT_SPEED
+				if GasRouter.is_active(&"dorsal_pack"):
+					EventBus.rapid_descent_activated.emit(_suit.global_position)
 			elif stats.flight_available and input.boost_pressed:
+				_descending = false
+				_rapid_descending = false
 				flight_state.enter(_suit.velocity)
 				_transition(State.FLIGHT)
 			else:
@@ -94,9 +116,18 @@ func _process_transitions(input: SuitInputState, delta: float) -> void:
 		State.FLIGHT:
 			if on_floor:
 				_on_land()
+			elif input.rapid_descent_pressed:
+				_correcting_roll = true
+				_descending = true
+				_rapid_descending = true
+				_suit.velocity.y = -RAPID_DESCENT_SPEED
+				if GasRouter.is_active(&"dorsal_pack"):
+					EventBus.rapid_descent_activated.emit(_suit.global_position)
+				_transition(State.AIRBORNE)
 			elif input.land_pressed or not stats.flight_available:
 				if input.land_pressed:
 					_correcting_roll = true
+					_descending = true
 					_suit.velocity.y = -LAND_DESCENT_SPEED
 				_transition(State.AIRBORNE)
 			elif flight_state.is_exhausted() and not input.boost_held:
@@ -131,6 +162,28 @@ func _on_land() -> void:
 	var stats = _suit.get_stats()
 	_suit.velocity.y = 0.0
 	_suit.rotation.z = 0.0
-	_correcting_roll = false
+	_correcting_roll   = false
+	_descending        = false
+	_rapid_descending  = false
 	_transition(State.GROUNDED)
 	EventBus.suit_landed.emit(_suit.global_position, stats.thermal_output)
+
+func _update_movement_mode(input: SuitInputState) -> void:
+	match current_state:
+		State.GROUNDED:
+			var hspeed := Vector2(_suit.velocity.x, _suit.velocity.z).length()
+			if hspeed < 0.5:
+				movement_mode = &"STANDING"
+			elif input.sprint_held:
+				movement_mode = &"RUNNING"
+			else:
+				movement_mode = &"WALKING"
+		State.AIRBORNE:
+			if _rapid_descending:
+				movement_mode = &"RAPID LANDING"
+			elif _descending:
+				movement_mode = &"LANDING"
+			else:
+				movement_mode = &"AIRBORNE"
+		State.FLIGHT:
+			movement_mode = &"FLYING"

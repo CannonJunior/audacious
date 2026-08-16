@@ -26,6 +26,7 @@ signal suit_landed(position: Vector3, thermal_output: float)
 signal suit_launched(position: Vector3)
 signal boost_activated(direction: Vector3)
 signal boost_depleted()
+signal rapid_descent_activated(position: Vector3)
 signal speed_changed(meters_per_second: float)
 
 # ── Heat & Infrastructure ─────────────────────────────────────────────────────

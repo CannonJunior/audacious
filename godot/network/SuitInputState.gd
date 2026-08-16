@@ -11,6 +11,7 @@ var roll_delta: float = 0.0                   # Q+A: positive = roll left, E+D: 
 var camera_look: Vector2 = Vector2.ZERO       # reserved for network/AI; not used by local input
 
 var land_pressed: bool = false                # X: exit flight, fall back to airborne
+var rapid_descent_pressed: bool = false       # XX: double-tap X; dorsal-pack dive at 4× descent speed
 
 var boost_pressed: bool = false               # tap: jump / double-tap: boost burst
 var boost_held: bool = false                  # hold: sustained thrust upward

@@ -76,10 +76,19 @@ func set_configuration(config: SuitConfiguration) -> void:
 	EventBus.configuration_changed.emit(config)
 	EventBus.suit_stats_updated.emit(config.get_stats())
 
+## Apply a preset for in-session testing without writing it to the save file.
+func apply_debug_preset(config: SuitConfiguration) -> void:
+	_skip_next_save = true
+	set_configuration(config)
+
+var _skip_next_save: bool = false
 
 func _on_configuration_changed(cfg: SuitConfiguration) -> void:
 	configuration = cfg
 	_apply_color_to_visuals(cfg)
+	if _skip_next_save:
+		_skip_next_save = false
+		return
 	ResourceSaver.save(cfg, SAVE_PATH)
 
 

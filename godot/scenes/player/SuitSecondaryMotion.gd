@@ -59,6 +59,9 @@ const SPRING_DAMPING   := 18.0
 const ARM_SPREAD_DEG   := 15.0  ## degrees, clavicle spread in FLIGHT
 const HEAD_LERP_SPEED  := 6.0
 const ARM_LERP_SPEED   := 3.0
+const ARM_SWING_DEG    := 25.0  ## degrees, max upperarm forward/back swing at full ground speed
+const TORSO_TWIST_DEG  :=  6.0  ## degrees, upper-spine counter-rotation vs arms
+const GAIT_LERP        := 12.0  ## arm-swing smoothing rate
 
 var _skeleton: Skeleton3D = null
 var _bi:       Dictionary = {}
@@ -84,10 +87,28 @@ var _head_pitch_cur: float = 0.0
 # Arm spread
 var _arm_spread_cur: float = 0.0
 
+# Walk / run arm swing
+var _arm_swing_l: float = 0.0
+var _arm_swing_r: float = 0.0
+
+# Rest-pose rotation cache, keyed by BONE_NAMES key. set_bone_pose_rotation()
+# sets the ABSOLUTE local pose rotation, not a delta from rest — every write
+# below must be composed as (rest_rotation * delta_rotation) or it discards
+# the bone's bind-pose bend entirely.
+var _rest_rot: Dictionary = {}
+
+const _DRIVEN_BONES := ["spine_02", "spine_03", "neck_01", "head",
+						  "clavicle_l", "clavicle_r",
+						  "upperarm_l", "upperarm_r"] + PLATE_KEYS
+
 
 func setup(skeleton: Skeleton3D, bi: Dictionary) -> void:
 	_skeleton = skeleton
 	_bi       = bi
+	for key in _DRIVEN_BONES:
+		var idx: int = _bi.get(key, -1)
+		if idx >= 0:
+			_rest_rot[key] = _skeleton.get_bone_rest(idx).basis.get_rotation_quaternion()
 	EventBus.suit_landed.connect(_on_suit_landed)
 
 
@@ -95,68 +116,108 @@ func tick(ctx: Dictionary) -> void:
 	if not _skeleton:
 		return
 
-	var velocity: Vector3 = ctx["velocity"]
-	# TODO (Session C): also extract delta, hspeed, stats, move_state from ctx.
+	var delta: float                      = ctx["delta"]
+	var velocity: Vector3                 = ctx["velocity"]
+	var hspeed: float                     = ctx["hspeed"]
+	var stats: SuitStats                  = ctx["stats"]
+	var move_state: MovementController.State = ctx["move_state"]
 
 	# Cache fall speed for landing impulse scaling.
 	if velocity.y < -0.5:
 		_last_fall_speed = absf(velocity.y)
 
-	# TODO (Session C): implement the four systems below.
-
 	# ── System 1: Breathing ───────────────────────────────────────────────────
-	# _breathe_phase = fmod(_breathe_phase + BREATHE_FREQ * TAU * delta, TAU)
-	# var ref_speed := maxf(stats.ground_sprint_speed, 1.0)
-	# var amp := deg_to_rad(BREATHE_AMP_DEG) * (1.0 - clampf(hspeed / ref_speed, 0.0, 1.0))
-	# var rot  := Quaternion(Vector3.RIGHT, sin(_breathe_phase) * amp)
-	# _set_bone_rot("spine_02", rot)
-	# _set_bone_rot("spine_03", rot)
+	_breathe_phase = fmod(_breathe_phase + BREATHE_FREQ * TAU * delta, TAU)
+	var ref_speed := maxf(stats.ground_sprint_speed, 1.0)
+	# gait_intensity is computed in SuitModelVisuals using GAIT_REF_SPEED (8 m/s),
+	# not ground_sprint_speed — using sprint speed made intensity < 5% at normal speeds.
+	var gait_intensity: float = ctx.get("gait_intensity", 0.0)
+	var amp := deg_to_rad(BREATHE_AMP_DEG) * (1.0 - gait_intensity)
+	var breathe_rot := Quaternion(Vector3.RIGHT, sin(_breathe_phase) * amp)
+	_set_bone_rot("spine_02", breathe_rot)
+	# spine_03: compose breathing + torso counter-rotation to arm swing.
+	var gait_phase: float = ctx.get("gait_phase", 0.0)
+	var torso_twist := Quaternion(Vector3.UP,
+		sin(gait_phase + PI) * deg_to_rad(TORSO_TWIST_DEG) * gait_intensity)
+	_set_bone_rot("spine_03", breathe_rot * torso_twist)
 
 	# ── System 2: Armor jiggle ────────────────────────────────────────────────
-	# Detect hard velocity changes for mid-air impulse:
-	# var vel_change := (velocity - _prev_velocity).length() / delta
-	# if vel_change > 5.0:
-	#     _apply_jiggle_impulse(15.0)
-	# _prev_velocity = velocity
-	#
-	# for i in PLATE_KEYS.size():
-	#     _spring_vel[i]  += (-SPRING_STIFFNESS * _spring_disp[i] - SPRING_DAMPING * _spring_vel[i]) * delta
-	#     _spring_disp[i] += _spring_vel[i] * delta
-	#     var idx: int = _bi.get(PLATE_KEYS[i], -1)
-	#     if idx >= 0:
-	#         _skeleton.set_bone_pose_rotation(idx,
-	#             Quaternion(Vector3.RIGHT, deg_to_rad(_spring_disp[i])))
+	# Compare the raw per-frame velocity delta (m/s), not delta/dt (m/s²) —
+	# dividing by delta turns this into an acceleration check, which ordinary
+	# gravity (~9.8 m/s²) trips every frame while airborne, causing continuous
+	# spurious jiggle during any fall, including the initial spawn drop.
+	var vel_change := (velocity - _prev_velocity).length()
+	if vel_change > 5.0:
+		_apply_jiggle_impulse(15.0)
+	_prev_velocity = velocity
+
+	for i in PLATE_KEYS.size():
+		_spring_vel[i]  += (-SPRING_STIFFNESS * _spring_disp[i] - SPRING_DAMPING * _spring_vel[i]) * delta
+		_spring_disp[i] += _spring_vel[i] * delta
+		_set_bone_rot(PLATE_KEYS[i], Quaternion(Vector3.RIGHT, deg_to_rad(_spring_disp[i])))
 
 	# ── System 3: Head look-at ────────────────────────────────────────────────
-	# var camera_rig := get_parent().get_parent().get_node_or_null("CameraRig")
-	# if camera_rig:
-	#     var cam_fwd   := -(camera_rig as Node3D).global_transform.basis.z
-	#     var suit_fwd  := -(get_parent().get_parent() as Node3D).global_transform.basis.z
-	#     var residual  := cam_fwd - suit_fwd
-	#     var yaw   := clampf(residual.x, deg_to_rad(-45.0), deg_to_rad(45.0))
-	#     var pitch := clampf(residual.y, deg_to_rad(-25.0), deg_to_rad(25.0))
-	#     _neck_yaw_cur   = lerpf(_neck_yaw_cur,   yaw   * 0.6, HEAD_LERP_SPEED * delta)
-	#     _neck_pitch_cur = lerpf(_neck_pitch_cur, pitch * 0.6, HEAD_LERP_SPEED * delta)
-	#     _head_yaw_cur   = lerpf(_head_yaw_cur,   yaw   * 0.4, HEAD_LERP_SPEED * delta)
-	#     _head_pitch_cur = lerpf(_head_pitch_cur, pitch * 0.4, HEAD_LERP_SPEED * delta)
-	#     _set_bone_rot("neck_01", Quaternion(Vector3.UP, _neck_yaw_cur) *
-	#                              Quaternion(Vector3.RIGHT, _neck_pitch_cur))
-	#     _set_bone_rot("head",    Quaternion(Vector3.UP, _head_yaw_cur) *
-	#                              Quaternion(Vector3.RIGHT, _head_pitch_cur))
+	# Residual is computed in the suit's local space so yaw/pitch fall out as a
+	# proper angle-between rather than a raw vector subtraction (which only
+	# approximates the angle for small offsets and doesn't map cleanly to the
+	# suit's local Y/X rotation axes).
+	#
+	# Read the Camera3D LEAF node, not CameraRig itself: CameraRig.rotation.y is
+	# deliberately set to suit.rotation.y + PI (CameraRig.gd) so the spring arm
+	# plants the camera behind the suit. Camera3D has no counter-rotation, so it
+	# inherits that 180° flip — using CameraRig's own basis.z as "forward" reads
+	# the opposite of what's on screen. Camera3D's -Z is engine-guaranteed to be
+	# the actual view direction regardless of how its ancestors are rigged.
+	var suit_root := get_parent().get_parent() as Node3D
+	var camera := suit_root.get_node_or_null("CameraRig/SpringArm3D/Camera3D") as Node3D
+	var target_yaw := 0.0
+	var target_pitch := 0.0
+	if camera:
+		var cam_fwd_world := camera.global_transform.basis.z
+		var local_fwd := (suit_root.global_transform.basis.inverse() * cam_fwd_world).normalized()
+		target_yaw   = clampf(atan2(local_fwd.x, -local_fwd.z), deg_to_rad(-45.0), deg_to_rad(45.0))
+		target_pitch = clampf(asin(clampf(local_fwd.y, -1.0, 1.0)), deg_to_rad(-25.0), deg_to_rad(25.0))
+
+	_neck_yaw_cur   = lerpf(_neck_yaw_cur,   target_yaw   * 0.6, HEAD_LERP_SPEED * delta)
+	_neck_pitch_cur = lerpf(_neck_pitch_cur, target_pitch * 0.6, HEAD_LERP_SPEED * delta)
+	_head_yaw_cur   = lerpf(_head_yaw_cur,   target_yaw   * 0.4, HEAD_LERP_SPEED * delta)
+	_head_pitch_cur = lerpf(_head_pitch_cur, target_pitch * 0.4, HEAD_LERP_SPEED * delta)
+	_set_bone_rot("neck_01", Quaternion(Vector3.UP, _neck_yaw_cur) *
+	                         Quaternion(Vector3.RIGHT, _neck_pitch_cur))
+	_set_bone_rot("head",    Quaternion(Vector3.UP, _head_yaw_cur) *
+	                         Quaternion(Vector3.RIGHT, _head_pitch_cur))
 
 	# ── System 4: Flight arm spread ───────────────────────────────────────────
-	# var target_spread := deg_to_rad(ARM_SPREAD_DEG) if move_state == MovementController.State.FLIGHT else 0.0
-	# _arm_spread_cur = lerpf(_arm_spread_cur, target_spread, ARM_LERP_SPEED * delta)
-	# _set_bone_rot("clavicle_l", Quaternion(Vector3.FORWARD, -_arm_spread_cur))
-	# _set_bone_rot("clavicle_r", Quaternion(Vector3.FORWARD,  _arm_spread_cur))
+	var target_spread := deg_to_rad(ARM_SPREAD_DEG) if move_state == MovementController.State.FLIGHT else 0.0
+	_arm_spread_cur = lerpf(_arm_spread_cur, target_spread, ARM_LERP_SPEED * delta)
+	_set_bone_rot("clavicle_l", Quaternion(Vector3.FORWARD, -_arm_spread_cur))
+	_set_bone_rot("clavicle_r", Quaternion(Vector3.FORWARD,  _arm_spread_cur))
+
+	# ── System 5: Walk / run arm swing ────────────────────────────────────────
+	# Left arm forward when gait_phase ≈ 0, right arm forward at ≈ π (opposite legs).
+	# Amplitude and phase rate both scale with speed, so slow walk → subtle swing
+	# and sprint → full swing automatically.
+	# Axis: RIGHT (local X) sweeps the arm through the sagittal plane — forward/back.
+	# FORWARD on a hanging arm produces lateral swing, which is wrong here.
+	# If arms swing the wrong direction, negate ARM_SWING_DEG.
+	if move_state == MovementController.State.GROUNDED:
+		var swing_amp := deg_to_rad(ARM_SWING_DEG) * gait_intensity
+		_arm_swing_l = lerpf(_arm_swing_l,  sin(gait_phase) * swing_amp, GAIT_LERP * delta)
+		_arm_swing_r = lerpf(_arm_swing_r, -sin(gait_phase) * swing_amp, GAIT_LERP * delta)
+	else:
+		_arm_swing_l = lerpf(_arm_swing_l, 0.0, GAIT_LERP * delta)
+		_arm_swing_r = lerpf(_arm_swing_r, 0.0, GAIT_LERP * delta)
+	_set_bone_rot("upperarm_l", Quaternion(Vector3.RIGHT, _arm_swing_l))
+	_set_bone_rot("upperarm_r", Quaternion(Vector3.RIGHT, _arm_swing_r))
 
 
 # ── Private ────────────────────────────────────────────────────────────────────
 
-func _set_bone_rot(key: String, rot: Quaternion) -> void:
+func _set_bone_rot(key: String, delta_rot: Quaternion) -> void:
 	var idx: int = _bi.get(key, -1)
 	if idx >= 0:
-		_skeleton.set_bone_pose_rotation(idx, rot)
+		var rest: Quaternion = _rest_rot.get(key, Quaternion.IDENTITY)
+		_skeleton.set_bone_pose_rotation(idx, rest * delta_rot)
 
 
 func _apply_jiggle_impulse(deg_per_s: float) -> void:

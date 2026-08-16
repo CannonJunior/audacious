@@ -18,6 +18,7 @@ const HTTP_PORT := 8787
 var _items:      Array      = []
 var _item_nodes: Array      = []   # parallel to _items — Node or null per entry
 var _tcp:        TCPServer  = TCPServer.new()
+var _listen_retry_timer: float = 0.0
 var _peers: Dictionary = {}   # id(int) -> WebSocketPeer
 var _next_id: int      = 0
 var _open_count: int      = 0
@@ -80,6 +81,7 @@ var _fp_heading:  Label   = null
 var _fp_energy:   Label   = null
 var _fp_load:     Label   = null
 var _fp_therm:    Label   = null
+var _fp_activity: Label   = null
 var _fp_dragging:    bool    = false
 var _fp_drag_offset: Vector2 = Vector2.ZERO
 
@@ -123,8 +125,7 @@ func _ready() -> void:
 	OS.create_process("python3", [script, "600", "800", str(HTTP_PORT)])
 	var err := _tcp.listen(WS_PORT)
 	if err != OK:
-		push_error("WebViewBridge: TCPServer failed on port %d (%s)" % [WS_PORT, error_string(err)])
-		set_process(false)
+		push_error("WebViewBridge: TCPServer failed on port %d (%s) — will retry" % [WS_PORT, error_string(err)])
 	EventBus.suit_stats_updated.connect(_on_suit_stats_updated)
 	GameSettings.settings_applied.connect(_on_settings_applied)
 
@@ -137,6 +138,16 @@ func _exit_tree() -> void:
 
 
 func _process(delta: float) -> void:
+	# Panel binding/sync below does not depend on the WebSocket bridge being up,
+	# so a failed/pending bind must never block it. Retry the bind periodically
+	# instead — the port can still be held by a just-killed previous instance.
+	if not _tcp.is_listening():
+		_listen_retry_timer += delta
+		if _listen_retry_timer >= 1.0:
+			_listen_retry_timer = 0.0
+			if _tcp.listen(WS_PORT) == OK:
+				print("WebViewBridge: TCPServer bound to port %d" % WS_PORT)
+
 	# Accept incoming TCP connections and upgrade them to WebSocket.
 	while _tcp.is_connection_available():
 		var ws := WebSocketPeer.new()
@@ -196,16 +207,25 @@ func _input(event: InputEvent) -> void:
 		_pr_dragging    = false
 		_gr_dragging    = false
 	elif event is InputEventMouseMotion:
-		_do_drag(_ui_panel, _panel_dragging, _panel_drag_offset)
-		_do_drag(_fp_panel, _fp_dragging,    _fp_drag_offset)
-		_do_drag(_gp_panel, _gp_dragging,    _gp_drag_offset)
-		_do_drag(_dp_panel, _dp_dragging,    _dp_drag_offset)
-		_do_drag(_pr_panel, _pr_dragging,    _pr_drag_offset)
-		_do_drag(_gr_panel, _gr_dragging,    _gr_drag_offset)
+		if _live(_ui_panel): _do_drag(_ui_panel, _panel_dragging, _panel_drag_offset)
+		if _live(_fp_panel): _do_drag(_fp_panel, _fp_dragging,    _fp_drag_offset)
+		if _live(_gp_panel): _do_drag(_gp_panel, _gp_dragging,    _gp_drag_offset)
+		if _live(_dp_panel): _do_drag(_dp_panel, _dp_dragging,    _dp_drag_offset)
+		if _live(_pr_panel): _do_drag(_pr_panel, _pr_dragging,    _pr_drag_offset)
+		if _live(_gr_panel): _do_drag(_gr_panel, _gr_dragging,    _gr_drag_offset)
+
+
+## True only when node is a live, non-freed instance AND currently in the tree.
+## is_instance_valid() alone is not enough: during a scene transition a node
+## can be unparented (freed on a deferred call) while still a valid object —
+## calling get_global_transform()/get_viewport_rect() on it errors even though
+## is_instance_valid() returns true.
+func _live(node: Node) -> bool:
+	return is_instance_valid(node) and node.is_inside_tree()
 
 
 func _do_drag(panel: Control, dragging: bool, offset: Vector2) -> void:
-	if not dragging or panel == null or not panel.visible:
+	if not dragging or not _live(panel) or not panel.visible:
 		return
 	var np := panel.get_global_mouse_position() - offset
 	var vp := panel.get_viewport_rect().size
@@ -404,7 +424,7 @@ func _handle_message(msg: String) -> void:
 # ── Scene inspector panel ─────────────────────────────────────────────────────
 
 func _bind_panel() -> void:
-	if _ui_panel != null:
+	if is_instance_valid(_ui_panel):
 		return
 	_ui_panel = get_tree().get_root().find_child("WebViewPanel", true, false) as Control
 	if _ui_panel == null:
@@ -530,9 +550,18 @@ func _find_suit_nodes() -> void:
 func _poll_flight() -> void:
 	if not _all_suit_nodes_found:
 		_find_suit_nodes()
-		_all_suit_nodes_found = (_suit_body != null and _move_ctrl != null
-				and _flight_state != null and _suit_visuals != null)
-	if _suit_body == null:
+		_all_suit_nodes_found = (_live(_suit_body) and _live(_move_ctrl)
+				and _live(_flight_state) and _live(_suit_visuals))
+	elif not (_live(_suit_body) and _live(_move_ctrl)
+			and _live(_flight_state) and _live(_suit_visuals)):
+		# A suit node was freed or unparented (e.g. respawn/scene transition) —
+		# reopen the gate so _find_suit_nodes() can re-resolve the new instances.
+		_suit_body    = null
+		_move_ctrl    = null
+		_flight_state = null
+		_suit_visuals = null
+		_all_suit_nodes_found = false
+	if not _live(_suit_body):
 		return
 
 	var vel:      Vector3 = _suit_body.velocity
@@ -544,10 +573,12 @@ func _poll_flight() -> void:
 	var heading:  float   = fmod(rad_to_deg(-(_suit_body as Node3D).rotation.y) + 3600.0, 360.0)
 
 	var mode_str := "GROUNDED"
+	var activity_str := "STANDING"
 	if _move_ctrl != null:
 		match int(_move_ctrl.get("current_state")):
 			1: mode_str = "AIRBORNE"
 			2: mode_str = "FLIGHT"
+		activity_str = str(_move_ctrl.get("movement_mode"))
 
 	var hover_energy: float = 1.0
 	if _flight_state != null:
@@ -575,6 +606,7 @@ func _poll_flight() -> void:
 		"x":            snappedf(pos.x,        0.1),
 		"z":            snappedf(pos.z,        0.1),
 		"mode":         mode_str,
+		"activity":     activity_str,
 		"hover_energy": snappedf(hover_energy, 0.01),
 		"load_ratio":   snappedf(load_ratio,   0.01),
 		"thermal":      snappedf(thermal_norm, 0.01),
@@ -597,15 +629,20 @@ func _poll_flight() -> void:
 		_bind_gp()
 		_bind_pr()
 		_bind_gr()
-		_flight_panels_bound = (_fp_panel != null and _gp_panel != null
-				and _pr_panel != null and _gr_panel != null)
+		_flight_panels_bound = (is_instance_valid(_fp_panel) and is_instance_valid(_gp_panel)
+				and is_instance_valid(_pr_panel) and is_instance_valid(_gr_panel))
+	elif not (is_instance_valid(_fp_panel) and is_instance_valid(_gp_panel)
+			and is_instance_valid(_pr_panel) and is_instance_valid(_gr_panel)):
+		# One or more panels were freed (e.g. a scene reload) since the last
+		# successful bind — reopen the gate so _bind_* can rebind on next tick.
+		_flight_panels_bound = false
 
 	_sync_fp_nodes(flight_payload)
 	_sync_gp_nodes(pitch_deg, bank_deg)
 
 
 func _bind_fp() -> void:
-	if _fp_panel != null:
+	if is_instance_valid(_fp_panel):
 		return
 	_fp_panel = get_tree().get_root().find_child("FlightInstrumentsPanel", true, false) as Control
 	if _fp_panel == null:
@@ -619,6 +656,7 @@ func _bind_fp() -> void:
 	_fp_energy   = _fp_panel.find_child("FIEnergy",   true, false) as Label
 	_fp_load     = _fp_panel.find_child("FILoad",     true, false) as Label
 	_fp_therm    = _fp_panel.find_child("FITherm",    true, false) as Label
+	_fp_activity = _fp_panel.find_child("FIActivity", true, false) as Label
 
 	var close_btn := _fp_panel.find_child("FICloseBtn", true, false) as Button
 	if close_btn:
@@ -630,7 +668,7 @@ func _bind_fp() -> void:
 
 
 func _sync_fp_nodes(d: Dictionary) -> void:
-	if _fp_panel == null:
+	if not is_instance_valid(_fp_panel):
 		return
 
 	var mode: String = d.get("mode", "GROUNDED")
@@ -692,6 +730,18 @@ func _sync_fp_nodes(d: Dictionary) -> void:
 		else:
 			_fp_therm.add_theme_color_override("font_color", _C_RED)
 
+	var activity: String = d.get("activity", "STANDING")
+	if _fp_activity:
+		_fp_activity.text = activity
+		match activity:
+			"FLYING":         _fp_activity.add_theme_color_override("font_color", _C_CYAN)
+			"RUNNING":        _fp_activity.add_theme_color_override("font_color", _C_CYAN)
+			"WALKING":        _fp_activity.add_theme_color_override("font_color", _C_AMB)
+			"AIRBORNE":       _fp_activity.add_theme_color_override("font_color", _C_AMB)
+			"LANDING":        _fp_activity.add_theme_color_override("font_color", _C_AMB)
+			"RAPID LANDING":  _fp_activity.add_theme_color_override("font_color", _C_RED)
+			_:                _fp_activity.add_theme_color_override("font_color", _C_DIM)
+
 
 func _cardinal(hdg: float) -> String:
 	var dirs := ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
@@ -714,7 +764,7 @@ func _on_fp_header_input(event: InputEvent) -> void:
 # ── Attitude gyro ─────────────────────────────────────────────────────────────
 
 func _bind_gp() -> void:
-	if _gp_panel != null:
+	if is_instance_valid(_gp_panel):
 		return
 	_gp_panel = get_tree().get_root().find_child("AttitudeGyroPanel", true, false) as Control
 	if _gp_panel == null:
@@ -733,7 +783,7 @@ func _bind_gp() -> void:
 
 
 func _sync_gp_nodes(pitch: float, bank: float) -> void:
-	if _gp_panel == null:
+	if not is_instance_valid(_gp_panel):
 		return
 
 	if _gp_dial and _gp_dial.has_method("update_attitude"):
@@ -759,7 +809,7 @@ func _on_gp_header_input(event: InputEvent) -> void:
 # ── Power router panel ───────────────────────────────────────────────────────
 
 func _bind_pr() -> void:
-	if _pr_panel != null:
+	if is_instance_valid(_pr_panel):
 		return
 	_pr_panel = get_tree().get_root().find_child("PowerRouterPanel", true, false) as Control
 	if _pr_panel == null:
@@ -783,7 +833,7 @@ func _bind_pr() -> void:
 
 
 func _sync_pr_nodes(modules: Array, capacity: float) -> void:
-	if _pr_panel == null:
+	if not is_instance_valid(_pr_panel):
 		return
 	if _pr_dial and _pr_dial.has_method("update_state"):
 		_pr_dial.call("update_state", modules, capacity)
@@ -811,7 +861,7 @@ func _on_pr_header_input(event: InputEvent) -> void:
 # ── Gas router panel ──────────────────────────────────────────────────────────
 
 func _bind_gr() -> void:
-	if _gr_panel != null:
+	if is_instance_valid(_gr_panel):
 		return
 	_gr_panel = get_tree().get_root().find_child("GasRouterPanel", true, false) as Control
 	if _gr_panel == null:
@@ -835,7 +885,7 @@ func _bind_gr() -> void:
 
 
 func _sync_gr_nodes(modules: Array, tank_pressure: float) -> void:
-	if _gr_panel == null:
+	if not is_instance_valid(_gr_panel):
 		return
 	if _gr_dial and _gr_dial.has_method("update_state"):
 		_gr_dial.call("update_state", modules, tank_pressure)
@@ -863,7 +913,7 @@ func _on_gr_header_input(event: InputEvent) -> void:
 # ── Inspector detail panel ────────────────────────────────────────────────────
 
 func _bind_dp() -> void:
-	if _dp_panel != null:
+	if is_instance_valid(_dp_panel):
 		return
 	_dp_panel = get_tree().get_root().find_child("InspectorDetailPanel", true, false) as Control
 	if _dp_panel == null:

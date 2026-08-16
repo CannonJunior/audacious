@@ -10,9 +10,19 @@ const SuitInputState = preload("res://network/SuitInputState.gd")
 
 @onready var _suit = $"../SuitBody"  # SuitBody
 
+# Primed after the first X press; cleared by the second press or on landing.
+# No timing window — any consecutive X before touching ground counts.
+var _land_primed: bool = false
+
+func _ready() -> void:
+	EventBus.suit_landed.connect(func(_pos, _thermal): _land_primed = false)
+	EventBus.boost_activated.connect(func(_dir): _land_primed = false)
+
 func _physics_process(_delta: float) -> void:
-	# Don't process game input while a UI field (e.g. chat) has keyboard focus.
-	if get_viewport().gui_get_focus_owner() != null:
+	# Don't process game input while a visible text-entry field has keyboard focus.
+	# is_visible_in_tree() guards against hidden panels retaining focus after close.
+	var _focus := get_viewport().gui_get_focus_owner()
+	if (_focus is LineEdit or _focus is TextEdit or _focus is SpinBox) and _focus.is_visible_in_tree():
 		return
 
 	# In multiplayer, only handle input for the local player's suit.
@@ -22,13 +32,13 @@ func _physics_process(_delta: float) -> void:
 
 	# Debug preset switching — before building state so it takes effect this frame
 	if Input.is_action_just_pressed("debug_preset_light"):
-		_suit.set_configuration(SuitPresets.scout())
+		_suit.apply_debug_preset(SuitPresets.scout())
 		print("[DEBUG] Preset: Scout  load=%.2f" % _suit.get_stats().load_ratio)
 	elif Input.is_action_just_pressed("debug_preset_balanced"):
-		_suit.set_configuration(SuitPresets.balanced())
+		_suit.apply_debug_preset(SuitPresets.balanced())
 		print("[DEBUG] Preset: Balanced  load=%.2f" % _suit.get_stats().load_ratio)
 	elif Input.is_action_just_pressed("debug_preset_heavy"):
-		_suit.set_configuration(SuitPresets.heavy())
+		_suit.apply_debug_preset(SuitPresets.heavy())
 		print("[DEBUG] Preset: Heavy  load=%.2f  flight=%s" % [
 			_suit.get_stats().load_ratio,
 			_suit.get_stats().flight_available,
@@ -55,13 +65,19 @@ func _physics_process(_delta: float) -> void:
 		)
 		state.turn_delta = -Input.get_axis("turn_left", "turn_right")
 
-	state.land_pressed = Input.is_action_just_pressed("force_land")
+	if Input.is_action_just_pressed("force_land"):
+		if _land_primed:
+			state.rapid_descent_pressed = true
+			_land_primed = false
+		else:
+			state.land_pressed = true
+			_land_primed = true
 
 	# Boost (Space): pressed = jump/burst, held = sustain flight
 	state.boost_pressed  = Input.is_action_just_pressed("boost")
 	state.boost_held     = Input.is_action_pressed("boost")
 	state.boost_down_held = Input.is_action_pressed("boost_down")
-	state.sprint_held    = Input.is_action_pressed("sprint")
+	state.sprint_held    = Input.is_action_pressed("sprint") or Input.is_key_pressed(KEY_SHIFT)
 
 	# Combat (Phase 5+, stubs for now so the struct is complete)
 	state.fire_primary_pressed  = Input.is_action_just_pressed("fire_primary")

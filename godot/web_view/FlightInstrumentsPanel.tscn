@@ -190,3 +190,29 @@ theme_override_font_sizes/font_size = 11
 theme_override_colors/font_color = Color(0.0, 1.0, 0.8, 1.0)
 text = "—%"
 mouse_filter = 2
+
+[node name="ActivitySep" type="ColorRect" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.11, 0.11, 0.16, 1.0)
+mouse_filter = 2
+
+[node name="ActivitySep2" type="ColorRect" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.11, 0.11, 0.16, 1.0)
+mouse_filter = 2
+
+[node name="ActivityKey" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 0
+theme_override_font_sizes/font_size = 10
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "ACTIVITY"
+mouse_filter = 2
+
+[node name="FIActivity" type="Label" parent="VBox/Pad/Grid"]
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 11
+theme_override_colors/font_color = Color(0.376, 0.376, 0.502, 1.0)
+text = "—"
+mouse_filter = 2

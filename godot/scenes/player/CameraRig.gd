@@ -33,6 +33,12 @@ func _ready() -> void:
 	_current_fov = GameSettings.camera_fov
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
+	# Without this, the spring arm's collision ray detects the suit's own
+	# CollisionShape3D as an obstacle whenever the body moves into the ray's
+	# path (e.g. walking backward toward the lagging camera rig) and retracts,
+	# snapping the camera in close and briefly losing the suit from view.
+	spring_arm.add_excluded_object(_suit.get_rid())
+
 func _process(delta: float) -> void:
 	# Scale follow speed so the lag never exceeds the spring arm's backward reach.
 	# At boost speed (60 m/s) the default FOLLOW_SPEED of 10 produces ~6 m of lag,

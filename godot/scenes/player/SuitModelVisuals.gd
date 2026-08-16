@@ -86,6 +86,8 @@ const BOB_AMP       :=  0.04
 const BOB_FREQ      :=  2.4
 const HOVER_AMP     :=  0.05
 const HOVER_FREQ    :=  0.65
+const GAIT_FREQ     :=  2.0    ## arm-swing cycles per second at full ground speed
+const GAIT_REF_SPEED := 8.0   ## m/s — speed at which gait animation reaches 100% intensity
 
 # ── State ──────────────────────────────────────────────────────────────────────
 var _suit_root: Node3D     = null
@@ -99,6 +101,7 @@ var _lean_fwd:   float = 0.0
 var _lean_side:  float = 0.0
 var _bank:       float = 0.0
 var _bob_phase:  float = 0.0
+var _gait_phase: float = 0.0
 var _prev_rot_y: float = 0.0
 
 @onready var _suit:     SuitBody           = get_parent()
@@ -124,6 +127,13 @@ func _ready() -> void:
 	_suit_root = doc.generate_scene(gltf)
 	add_child(_suit_root)
 	_setup_skeleton()
+
+	# The GLB embeds an AnimationPlayer (animation/import=true in the .import file).
+	# AnimationPlayer processes AFTER _process in Godot 4's frame pipeline, so it
+	# overwrites every set_bone_pose_rotation call made by the procedural systems.
+	# Disabling it here gives the procedural systems full ownership of the skeleton.
+	for ap: AnimationPlayer in _suit_root.find_children("*", "AnimationPlayer", true, false):
+		ap.active = false
 
 	var placeholder := get_parent().get_node_or_null("Visuals")
 	if placeholder:
@@ -224,19 +234,31 @@ func _animate(delta: float) -> void:
 	_suit_root.rotation_degrees = Vector3(_lean_fwd, _bank, _lean_side)
 	_suit_root.position.y = lerpf(_suit_root.position.y, target_y, 10.0 * delta)
 
+	# ── Gait phase — advances with speed when grounded, shared by subsystems ──
+	# GAIT_REF_SPEED (8 m/s) is the reference, not ground_sprint_speed (60–200 m/s).
+	# Using sprint speed would make gait_intensity < 5% at typical movement speeds.
+	var gait_intensity := 0.0
+	if move_state == MovementController.State.GROUNDED:
+		gait_intensity = clampf(hspeed / GAIT_REF_SPEED, 0.0, 1.0)
+		_gait_phase = fmod(_gait_phase + gait_intensity * GAIT_FREQ * TAU * delta, TAU)
+
 	# ── Build per-frame context and tick subsystems ────────────────────────────
 	var ctx := {
-		"delta":      delta,
-		"velocity":   vel,
-		"local_vel":  local_vel,
-		"hspeed":     hspeed,
-		"move_state": move_state,
-		"stats":      stats,
-		"yaw_rate":   yaw_rate,
-		"lean_fwd":   _lean_fwd,
+		"delta":          delta,
+		"velocity":       vel,
+		"local_vel":      local_vel,
+		"hspeed":         hspeed,
+		"move_state":     move_state,
+		"stats":          stats,
+		"yaw_rate":       yaw_rate,
+		"lean_fwd":       _lean_fwd,
+		"gait_phase":     _gait_phase,
+		"gait_intensity": gait_intensity,
 	}
 
-	if _thruster_vfx:     _thruster_vfx.tick(ctx)
-	if _leg_ik:           _leg_ik.tick(ctx)
+	if _thruster_vfx: _thruster_vfx.tick(ctx)
+	if _leg_ik:
+		_leg_ik.tick(ctx)
+		ctx["gait_weight"] = _leg_ik.gait_weight_right
 	if _secondary_motion: _secondary_motion.tick(ctx)
 	if _emission_glow:    _emission_glow.tick(ctx)
